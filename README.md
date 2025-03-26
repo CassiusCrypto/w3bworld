@@ -1,4 +1,4 @@
 # w3bworld
-Basic learning stuff
+This repo contains code for different elements of a simple Web3 game.
 
-This repo has code for different elements of a simple Web3 game.
+* Smart contract for minting/redeeming a native token, "khoyn", from ETH on Base network.
