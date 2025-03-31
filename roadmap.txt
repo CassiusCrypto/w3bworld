@@ -1,0 +1,38 @@
+W3bWorld is a blockchain-powered text adventure game
+The interface is classic text adventure style, with a field for inputs and a panel with outputs on the left.
+To the right will be a space for images, which can be ASCII text art.
+The user connects with MetaMask. Key objects and milestones are represented by NFTs. The game infers state from these.
+The inventory is drawn directly from the blockchain. We may have a separate inventory for minor items.
+Different areas of the map are open to the player depending on what items they hold in their wallet.
+Users can navigate around, look at their location, take objects, examine items, use them, and so on.
+The map is held in a separate file that contains all the information for the game.
+The map will include fields that specify what items need to be held for a location to be accessible.
+There will be locations where you can interact with other services, based on smart contracts (for example, playing a game).
+Some commands will only work in certain locations, or when you own certain items
+Some rooms will have state affected by your inventory (e.g. only lit if you have a torch)
+
+The structure needs to be modular:
+- Map (navigation and "look"); visibility of locations depends on inventory (NFTs)
+- Objects inc NPCs (takeable, mintable, useable)
+- Actions (requires object, dependent on location can be dependent on immovable object)
+
+E.g. When in The Bank you can Mint and Redeem Khoyns, but nowhere else.
+In order to access The Cave, you need the Level2 NFT
+To Unlock the Door in The Cave, you need The Key 
+
+Commands: Movement, observation, interaction, inventory, communication, game state, custom/one-off
+
+Map:
+room, dependent on inventory item?
+description
+exits
+objects present
+
+Objects:
+name
+description (available on examination)
+takeable, mintable, usable
+
+
+
+

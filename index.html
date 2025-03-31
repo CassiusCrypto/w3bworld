@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>W3bWorld</title>
+    <style>
+        body {
+            font-family: monospace;
+            background-color: #000;
+            color: #0f0;
+            margin: 20px;
+        }
+        #gameContainer {
+            display: flex;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        #output {
+            width: 60%;
+            height: 400px;
+            overflow-y: scroll;
+            border: 1px solid #0f0;
+            padding: 10px;
+            margin-right: 10px;
+        }
+        #artBox {
+            width: 40%;
+            height: 400px;
+            border: 1px solid #0f0;
+            padding: 10px;
+            background-color: #000;
+            color: #0f0;
+            overflow-y: scroll;
+            overflow-x: auto; /* Allow horizontal scrolling for wide art */
+            white-space: pre; /* Preserve spaces and prevent wrapping */
+            font-family: 'Courier New', Courier, monospace; /* Use a true monospace font */
+            font-size: 12px; /* Fixed font size for consistency */
+            line-height: 1; /* Ensure consistent line spacing */
+        }
+        #commandInput {
+            width: 60%;
+            background-color: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 5px;
+            font-family: monospace;
+        }
+        #connectButton {
+            background-color: #0f0;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-family: monospace;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        #connectButton:hover {
+            background-color: #0c0;
+        }
+        #walletAddress {
+            color: #0f0;
+            font-family: monospace;
+        }
+        .khoyn-balance {
+            color: #fff;
+        }
+        /* Adjust font size for smaller screens */
+        @media (max-width: 768px) {
+            #artBox {
+                font-size: 10px; /* Smaller font size for mobile */
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>W3bWorld: Source Code</h1>
+    <div id="walletContainer">
+        <button id="connectButton">Connect to MetaMask</button>
+    </div>
+    <div id="gameContainer">
+        <div id="output"></div>
+            <div id="artBox"></div>
+    </div>
+    <input type="text" id="commandInput" placeholder="Enter command...">
+    <!-- Include ethers.js for blockchain integration -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+    <!-- Include the AGT framework and game -->
+    <script src="agt.js"></script>
+    <script src="w3bworld.js"></script>
+</body>
+</html>
