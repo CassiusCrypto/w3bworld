@@ -43,18 +43,33 @@ class AGT {
 
     // Display ASCII art in the artBox by fetching from a file
     async displayArt(artFile) {
-        console.log("Fetching art for:", artFile); // Debug log
+        console.log("Fetching art for:", artFile);
         try {
             const response = await fetch(`art/${artFile}.txt`);
-            console.log("Fetch response:", response); // Debug log
+            console.log("Fetch response:", response);
             if (!response.ok) {
                 throw new Error(`Failed to load art for ${artFile}`);
             }
             const art = await response.text();
-            console.log("Fetched art:", art); // Debug log
-            this.artBoxElement.innerHTML = `<pre>${art}</pre>`;
+            console.log("Fetched art:", art);
+
+            // Split the art into lines to find the widest line
+            const lines = art.split('\n');
+            const maxWidthChars = Math.max(...lines.map(line => line.length));
+        
+            // Estimate the pixel width of the art (font-size: 12px, monospace font)
+            // Monospace fonts typically have a width-to-height ratio of about 0.6
+            const charWidth = 12 * 0.6; // Approximate width of each character in pixels
+            const artWidthPx = maxWidthChars * charWidth;
+
+            // Output the art in a centered container
+            this.artBoxElement.innerHTML = `
+                <div class="artWrapper" style="min-width: ${artWidthPx}px;">
+                    <pre>${art}</pre>
+                </div>
+            `;
         } catch (error) {
-            console.log("Error fetching art:", error); // Debug log
+            console.log("Error fetching art:", error);
             this.artBoxElement.innerHTML = `<pre>No art available: ${error.message}</pre>`;
         }
     }

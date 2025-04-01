@@ -44,7 +44,7 @@ async function initWeb3(game) {
 
             // Update the UI to show the connected address
             const walletContainer = document.getElementById("walletContainer");
-            walletContainer.innerHTML = `<div id="walletAddress">Connected: ${address}</div>`;
+            walletContainer.innerHTML = `<div id="walletAddress">Connected: ${address.slice(0, 4)}...${address.slice(-4)}</div>`;
         } catch (error) {
             game.output(`Error connecting to MetaMask: ${error.message}`);
             return;
@@ -100,7 +100,7 @@ const gameData = {
             items: { chair: "The chair has a headrest that is covered in electrodes. On the arm of the chair there is a keypad with a green button." }
         },
         atrium: {
-            description: "You are standing in a white room. A locked door lies to the east. A broad window with thick plexiglass faces outside.",
+            description: "You are standing in a white room. A locked door lies to the east. A broad window with thick plexiglass faces outside onto a decaying city.",
             exits: { south: "chair", east: "secret_room" },
             items: { door: "The door is locked." },
             conditions: {
@@ -122,7 +122,7 @@ const gameData = {
             items: {}
         },
         terminal: {
-            description: "You are in a room lit only by the light of a dusty computer terminal. A stack of datacubes lies on the table.",
+            description: "You are in a room lit only by the light of a dusty computer terminal.",
             exits: { west: "chair" },
             items: { datacube: "Beneath the shifting translucent surface of the datacube, thousands of petabytes of data can be stored at the subatomic level." }
         }
@@ -190,7 +190,7 @@ async function initWeb3(game) {
 
             // Update the UI to show the connected address
             const walletContainer = document.getElementById("walletContainer");
-            walletContainer.innerHTML = `<div id="walletAddress">Connected: ${address}</div>`;
+            walletContainer.innerHTML = `<div id="walletAddress">Connected: ${address.slice(0, 4)}...${address.slice(-4)}</div>`;
         } catch (error) {
             game.output(`Error connecting to MetaMask: ${error.message}`);
             return;

@@ -11,6 +11,24 @@
             color: #0f0;
             margin: 20px;
         }
+        #topBar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        nav {
+            margin-bottom: 20px;
+        }
+        nav a {
+            color: #0f0;
+            margin-right: 15px;
+            text-decoration: none;
+            font-size: 15px; 
+        }
+        nav a:hover {
+            text-decoration: underline;
+        }
         #gameContainer {
             display: flex;
             width: 100%;
@@ -32,11 +50,23 @@
             background-color: #000;
             color: #0f0;
             overflow-y: scroll;
-            overflow-x: auto; /* Allow horizontal scrolling for wide art */
-            white-space: pre; /* Preserve spaces and prevent wrapping */
-            font-family: 'Courier New', Courier, monospace; /* Use a true monospace font */
-            font-size: 12px; /* Fixed font size for consistency */
-            line-height: 1; /* Ensure consistent line spacing */
+            overflow-x: auto;
+            white-space: pre;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            line-height: 1;
+            display: flex; /* Add flexbox to center the content */
+            justify-content: center; /* Center horizontally */
+            align-items: flex-start; /* Align to top for vertical scrolling */
+        }
+
+        .artWrapper {
+            display: inline-block; /* Ensure the wrapper only takes the width of the art */
+            text-align: center; /* Center the pre tag inside the wrapper */
+        }
+
+        .artWrapper pre {
+            margin: 0; /* Remove default margins from pre tag */
         }
         #commandInput {
             width: 60%;
@@ -74,9 +104,15 @@
     </style>
 </head>
 <body>
-    <h1>W3bWorld: Source Code</h1>
-    <div id="walletContainer">
-        <button id="connectButton">Connect to MetaMask</button>
+    <div id="topBar">
+        <nav>
+            <a href="index.html">W3bWorld</a>
+            <a href="about.html">About</a>
+            <a href="blockworm.html">Roadmap</a>
+        </nav>
+        <div id="walletContainer">
+            <button id="connectButton">Connect to MetaMask</button>
+        </div>
     </div>
     <div id="gameContainer">
         <div id="output"></div>
