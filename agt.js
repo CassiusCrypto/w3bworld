@@ -46,31 +46,41 @@ class AGT {
         console.log("Fetching art for:", artFile);
         try {
             const response = await fetch(`art/${artFile}.txt`);
-            console.log("Fetch response:", response);
             if (!response.ok) {
                 throw new Error(`Failed to load art for ${artFile}`);
             }
-            const art = await response.text();
-            console.log("Fetched art:", art);
+            let art = await response.text();
+            // Normalize line endings and trim trailing whitespace
+            art = art.replace(/\r\n/g, '\n').split('\n').map(line => line.trimEnd()).join('\n');
+            console.log("Fetched art (raw):", JSON.stringify(art));
+
+            // Escape HTML characters to prevent rendering issues
+            const escapeHTML = (str) => {
+                return str.replace(/&/g, '&amp;')
+                         .replace(/</g, '&lt;')
+                         .replace(/>/g, '&gt;')
+                         .replace(/"/g, '&quot;')
+                         .replace(/'/g, '&#39;');
+            };
+            const escapedArt = escapeHTML(art);
 
             // Split the art into lines to find the widest line
-            const lines = art.split('\n');
+            const lines = escapedArt.split('\n');
             const maxWidthChars = Math.max(...lines.map(line => line.length));
         
             // Estimate the pixel width of the art (font-size: 12px, monospace font)
-            // Monospace fonts typically have a width-to-height ratio of about 0.6
-            const charWidth = 12 * 0.6; // Approximate width of each character in pixels
+            const charWidth = 12 * 0.6;
             const artWidthPx = maxWidthChars * charWidth;
 
             // Output the art in a centered container
             this.artBoxElement.innerHTML = `
                 <div class="artWrapper" style="min-width: ${artWidthPx}px;">
-                    <pre>${art}</pre>
+                    <pre>${escapedArt}</pre>
                 </div>
             `;
         } catch (error) {
             console.log("Error fetching art:", error);
-            this.artBoxElement.innerHTML = `<pre>No art available: ${error.message}</pre>`;
+            // Do nothing, preserving current art
         }
     }
 
@@ -150,7 +160,7 @@ class AGT {
 
     // Show the player's inventory, including Khoyn balance
     async showInventory() {
-        let inventoryDisplay = this.inventory.slice(); // Copy the inventory array
+        let inventoryDisplay = this.inventory.map(item => item.name); // Extract names
 
         // Debug: Log contract and signer
         console.log("showInventory - this.contract:", this.contract);
@@ -183,16 +193,21 @@ class AGT {
     move(direction) {
         const room = this.rooms[this.currentRoom];
         const dir = direction === "n" ? "north" : direction === "s" ? "south" : direction === "e" ? "east" : direction === "w" ? "west" : direction;
-        if (room.exits[dir]) {
-            // Check for conditions (e.g., locked doors)
+        if (room.exits && room.exits[dir]) {
             if (room.conditions && room.conditions[dir]) {
                 const { item, message } = room.conditions[dir];
-                if (!this.inventory.includes(item)) {
+                if (!this.inventory.some(i => i.name === item)) {
                     this.output(message);
                     return;
                 }
             }
-            this.currentRoom = room.exits[dir];
+            const nextRoom = room.exits[dir];
+            if (!this.rooms[nextRoom]) {
+                this.output("Error: The destination room does not exist.");
+                console.error("Invalid room:", nextRoom);
+                return;
+            }
+            this.currentRoom = nextRoom;
             this.displayRoom();
         } else {
             this.output("You can't go that way.");
@@ -200,22 +215,55 @@ class AGT {
     }
 
     // Examine an item
-    examine(item) {
+    examine(target) {
         const room = this.rooms[this.currentRoom];
-        if (room.items[item]) {
-            this.output(room.items[item]);
-        } else {
-            this.output("There's nothing like that here.");
+        // Check room items first
+        if (room.items[target]) {
+            this.output(room.items[target]); // Description is the value directly
+            if (room.itemArt && room.itemArt[target]) {
+                this.displayArt(room.itemArt[target]);
+            }
+            return;
         }
+        // Check room objects
+        if (room.objects && room.objects[target]) {
+            this.output(room.objects[target]); // Description is the value directly
+            if (room.objectArt && room.objectArt[target]) {
+                this.displayArt(room.objectArt[target]);
+            }
+            return;
+        }
+        // Check inventory
+        const inventoryItem = this.inventory.find(item => item.name === target);
+        if (inventoryItem) {
+            this.output(inventoryItem.description);
+            // Look up the art from the current room's itemArt (or search all rooms if needed)
+            if (room.itemArt && room.itemArt[target]) {
+                this.displayArt(room.itemArt[target]);
+            } else {
+                // Optionally search all rooms for the item's art
+                for (const roomKey in this.rooms) {
+                    if (this.rooms[roomKey].itemArt && this.rooms[roomKey].itemArt[target]) {
+                        this.displayArt(this.rooms[roomKey].itemArt[target]);
+                        break;
+                    }
+                }
+            }
+            return;
+        }
+        // If not found anywhere
+        this.output("There's nothing like that to examine.");
     }
 
     // Take an item
     take(item) {
         const room = this.rooms[this.currentRoom];
         if (room.items[item]) {
-            this.inventory.push(item);
+            this.inventory.push({ name: item, description: room.items[item] });
             delete room.items[item];
             this.output(`You take the ${item}.`);
+        } else if (room.objects && room.objects[item]) {
+            this.output(`You can't take the ${item}.`);
         } else {
             this.output("There's nothing like that to take.");
         }
@@ -229,12 +277,11 @@ class AGT {
             return;
         }
         const room = this.rooms[this.currentRoom];
-        if (!this.inventory.includes(item)) {
+        if (!this.inventory.some(i => i.name === item)) {
             this.output(`You don't have a ${item}.`);
             return;
         }
-        if (room.items[target]) {
-            // Check for use conditions
+        if (room.items[target] || (room.objects && room.objects[target])) {
             if (room.useActions && room.useActions[item] && room.useActions[item][target]) {
                 const action = room.useActions[item][target];
                 action(this);
@@ -245,4 +292,5 @@ class AGT {
             this.output(`There's no ${target} here.`);
         }
     }
+
 }

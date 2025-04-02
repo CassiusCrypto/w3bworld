@@ -94,17 +94,19 @@ async function checkBalance(arg, game) {
 const gameData = {
     startRoom: "atrium",
     rooms: {
-        chair: {
-            description: "You are in a small room containing a padded chair set into the wall.",
+        scanner: {
+            description: "You are in a small room containing a medical scanner.",
             exits: { north: "atrium", east: "terminal" },
-            items: { chair: "The chair has a headrest that is covered in electrodes. On the arm of the chair there is a keypad with a green button." }
+            objects: { scanner: "The scanner contains a couch. On the outside of the scanner there is a 2cm square recess. Inside the scanner is a green button." },
+            items: {}			
         },
         atrium: {
-            description: "You are standing in a white room. A locked door lies to the east. A broad window with thick plexiglass faces outside onto a decaying city.",
-            exits: { south: "chair", east: "secret_room" },
-            items: { door: "The door is locked." },
+            description: "You are standing in a white room. A locked door lies to the east. A broad window faces out onto a decaying city.",
+            exits: { south: "scanner", east: "secret_room" },
+            items: {},
+            objects: { door: "The door is electronically locked and has no keyhole or keypad. It has a thick seal around the edge.", window: "The window is made from 5cm-thick reinforced glass." },
             conditions: {
-                east: { item: "key", message: "You should not go that way. The door is locked because the entropy outside has become dangerously high." }
+                east: { item: "key", message: "You should not go that way. The door is closed because the entropy outside has become dangerously high." }
             },
             useActions: {
                 key: {
@@ -116,15 +118,12 @@ const gameData = {
                 }
             }
         },
-        secret_room: {
-            description: "A hidden room with ancient runes.",
-            exits: { west: "atrium" },
-            items: {}
-        },
         terminal: {
             description: "You are in a room lit only by the light of a dusty computer terminal.",
-            exits: { west: "chair" },
-            items: { datacube: "Beneath the shifting translucent surface of the datacube, thousands of petabytes of data can be stored at the subatomic level." }
+            exits: { west: "scanner" },
+            items: { datacube: "Beneath the shifting translucent surface of the datacube, thousands of petabytes of data can be stored at the subatomic level." },
+            objects: { terminal: "The terminal is a Quantech 4 model with an Optical Drive for ultra-high-volume data transfer.", drive: "The Drive has a square recess, 2cm on each side, designed to accept a standard datacube."},
+            itemArt: { datacube: "datacube" }
         }
     },
     customCommands: {
@@ -139,11 +138,11 @@ const gameData = {
         "shout": (arg, game) => {
             game.output("Your voice echoes in the room, but nothing happens.");
         },
-        "light": (arg, game) => {
-            if (arg === "torch" && game.currentRoom === "atrium") {
-                game.output("You light a torch, revealing the atrium's details.");
+        "lie": (arg, game) => {
+            if (game.currentRoom === "scanner") {
+                game.output("You lie in the scanner..");
             } else {
-                game.output("There's no need to light a torch here.");
+                game.output("You lie on the floor.");
             }
         }
     }
