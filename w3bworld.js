@@ -102,21 +102,16 @@ const gameData = {
         },
         atrium: {
             description: "You are standing in a white room. A locked door lies to the east. A broad window faces out onto a decaying city.",
-            exits: { south: "scanner", east: "secret_room" },
+            exits: { 
+                south: "scanner", 
+                east: {
+					room: "outside",
+                    condition: "atriumDoorUnlocked",
+                    message: "The door is locked because the entropy outside is dangerously high. It can only be unlocked electronically."
+                }					
+            },
             items: {},
             objects: { door: "The door is electronically locked and has no keyhole or keypad. It has a thick seal around the edge.", window: "The window is made from 5cm-thick reinforced glass." },
-            conditions: {
-                east: { item: "key", message: "You should not go that way. The door is closed because the entropy outside has become dangerously high." }
-            },
-            useActions: {
-                key: {
-                    door: (game) => {
-                        game.output("You unlock the door with the key.");
-                        game.inventory = game.inventory.filter(i => i !== "key");
-                        delete game.rooms.atrium.conditions.east; // Unlock the door
-                    }
-                }
-            }
         },
         terminal: {
             description: "You are in a room lit only by the light of a dusty computer terminal.",

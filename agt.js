@@ -6,6 +6,10 @@ class AGT {
         console.log("Rooms:", this.rooms);
         console.log("Current room:", this.currentRoom);
         this.inventory = [];
+        this.conditions = { // Add conditions object
+            atriumDoorUnlocked: false, // Initially, the atrium door is locked
+            datacubeInserted: false // Initially, the datacube is not inserted
+        };
         this.outputElement = document.getElementById("output");
         this.artBoxElement = document.getElementById("artBox");
         console.log("artBoxElement:", this.artBoxElement); // Debug log
@@ -140,6 +144,15 @@ class AGT {
             await this.showInventory();
             return; // Exit early
         }
+        if (command === "type" && argStr) {
+            this.type(argStr);
+            return;
+        }
+        if (command === "insert" && argStr) {
+            this.insert(argStr);
+            return;
+        }
+		
         if (command === "help" || command === "h") {
             this.output(`Available Commands:<br>north/n, south/s, west/w, east/e - Move to new location<br>look/l - Look around the current location<br>inventory/i - Check your inventory<br>examine/exam <item> - Examine an item in the current location<br>take <item> - Pick up an item<br>help - Show this help message<br>about - About W3bWorld`);
             return;			
@@ -194,26 +207,36 @@ class AGT {
         const room = this.rooms[this.currentRoom];
         const dir = direction === "n" ? "north" : direction === "s" ? "south" : direction === "e" ? "east" : direction === "w" ? "west" : direction;
         if (room.exits && room.exits[dir]) {
-            if (room.conditions && room.conditions[dir]) {
-                const { item, message } = room.conditions[dir];
-                if (!this.inventory.some(i => i.name === item)) {
-                    this.output(message);
+        // Check if the exit is a conditional exit (an object)
+            if (typeof room.exits[dir] === "object") {
+                const exit = room.exits[dir];
+                if (this.conditions[exit.condition]) {
+                    const nextRoom = exit.room;
+                    if (!this.rooms[nextRoom]) {
+                        this.output("Error: The destination room does not exist.");
+                        console.error("Invalid room:", nextRoom);
+                        return;
+                    }
+                    this.currentRoom = nextRoom;
+                    this.displayRoom();
+                } else {
+                    this.output(exit.message);
+                }
+            } else {
+                // Simple exit (string)
+                const nextRoom = room.exits[dir];
+                if (!this.rooms[nextRoom]) {
+                    this.output("Error: The destination room does not exist.");
+                    console.error("Invalid room:", nextRoom);
                     return;
                 }
+                this.currentRoom = nextRoom;
+                this.displayRoom();
             }
-            const nextRoom = room.exits[dir];
-            if (!this.rooms[nextRoom]) {
-                this.output("Error: The destination room does not exist.");
-                console.error("Invalid room:", nextRoom);
-                return;
-            }
-            this.currentRoom = nextRoom;
-            this.displayRoom();
         } else {
             this.output("You can't go that way.");
         }
     }
-
     // Examine an item
     examine(target) {
         const room = this.rooms[this.currentRoom];
@@ -273,7 +296,7 @@ class AGT {
     use(itemStr) {
         const [item, preposition, target] = itemStr.split(" ");
         if (preposition !== "on" || !target) {
-            this.output("Use items like this: use <item> on <target>");
+            this.output("Use items like this: use &lt;item&gt; on &lt;target&gt;");
             return;
         }
         const room = this.rooms[this.currentRoom];
@@ -291,6 +314,52 @@ class AGT {
         } else {
             this.output(`There's no ${target} here.`);
         }
+    }
+
+    type(arg) {
+        const room = this.rooms[this.currentRoom];
+        if (this.currentRoom !== "terminal") {
+            this.output("You need to be at the terminal to type commands.");
+            return;
+        }
+        if (arg !== "unlock") {
+            this.output("You can type 'unlock' at the terminal to unlock the atrium door.");
+            return;
+        }
+        if (this.conditions.atriumDoorUnlocked) {
+            this.output("The door in the atrium is already unlocked.");
+        } else {
+            this.conditions.atriumDoorUnlocked = true;
+            this.output("You type 'unlock' into the terminal. The message 'Door unlocked' is displayed on the screen. A klaxon begins to sound.");
+        }
+
+    }
+
+    insert(arg) {
+        const room = this.rooms[this.currentRoom];
+        if (this.currentRoom !== "terminal") {
+            this.output("You need to be at the terminal to insert a datacube into the drive.");
+            return;
+        }
+        if (!room.objects || !room.objects["drive"]) {
+            this.output("There is no drive here to insert a datacube into.");
+            return;
+        }
+        if (arg !== "datacube") {
+            this.output("You need to insert a datacube into the drive.");
+            return;
+        }
+        if (!this.inventory.some(i => i.name === "datacube")) {
+            this.output("You don't have a datacube.");
+            return;
+        }
+        if (this.conditions.datacubeInserted) {
+            this.output("A datacube is already inserted in the drive.");
+            return;
+        }
+        this.inventory = this.inventory.filter(i => i.name !== "datacube");
+        this.conditions.datacubeInserted = true;
+        this.output("You insert the datacube into the drive. You hear a click and a whirring noise from the scanner in the adjacent room.");
     }
 
 }
