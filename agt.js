@@ -1,21 +1,32 @@
 // Adventure Game Toolkit (AGT)
 class AGT {
     constructor(gameData) {
+        this.gameData = gameData; // Store gameData for later use
         this.rooms = gameData.rooms || {};
         this.currentRoom = gameData.startRoom || Object.keys(this.rooms)[0];
         console.log("Rooms:", this.rooms);
         console.log("Current room:", this.currentRoom);
         this.inventory = [];
-        this.conditions = { // Add conditions object
-            atriumDoorUnlocked: false, // Initially, the atrium door is locked
-            datacubeInserted: false // Initially, the datacube is not inserted
-        };
+        this.initialConditions = { ...gameData.conditions }; // Store initial conditions
+        console.log("Initial conditions stored:", this.initialConditions);
+        this.conditions = { ...gameData.conditions };
+        console.log("this.conditions after init:", this.conditions);
+        this.dead = false;
         this.outputElement = document.getElementById("output");
         this.artBoxElement = document.getElementById("artBox");
         console.log("artBoxElement:", this.artBoxElement); // Debug log
-        this.customCommands = gameData.customCommands || {};
+        this.customCommands = gameData.commands || {}; // Use gameData.commands from w3bworld.js for custom commands
         this.contract = null; // Initialize as null
         this.signer = null; // Initialize as null
+
+        this.handleCommandInput = (event) => {
+            if (event.key === "Enter" && !this.dead) { // Add check for !this.dead
+                const input = event.target.value.trim();
+                this.output(`> ${input}`);
+                this.parseCommand(input);
+                event.target.value = "";
+            }
+        };
 
         // Bind input handler
         document.getElementById("commandInput").addEventListener("keypress", (event) => {
@@ -55,7 +66,8 @@ class AGT {
             }
             let art = await response.text();
             // Normalize line endings and trim trailing whitespace
-            art = art.replace(/\r\n/g, '\n').split('\n').map(line => line.trimEnd()).join('\n');
+            // art = art.replace(/\r\n/g, '\n').split('\n').map(line => line.trimEnd()).join('\n');
+            art = art.replace(/\r\n/g, '\n');
             console.log("Fetched art (raw):", JSON.stringify(art));
 
             // Escape HTML characters to prevent rendering issues
@@ -115,6 +127,11 @@ class AGT {
 	
     // Parse and handle player commands
     async parseCommand(input) {
+        // Ignore commands if the player is dead
+        if (this.dead) {
+            return;
+        }
+	
         const [command, ...args] = input.toLowerCase().split(" ");
         const argStr = args.join(" ");
 
@@ -144,15 +161,14 @@ class AGT {
             await this.showInventory();
             return; // Exit early
         }
-        if (command === "type" && argStr) {
-            this.type(argStr);
+        if (command === "mint") {
+            this.mintKhoyn(argStr);
             return;
         }
-        if (command === "insert" && argStr) {
-            this.insert(argStr);
+        if (command === "balance") {
+            this.checkBalance(argStr);
             return;
-        }
-		
+        }		
         if (command === "help" || command === "h") {
             this.output(`Available Commands:<br>north/n, south/s, west/w, east/e - Move to new location<br>look/l - Look around the current location<br>inventory/i - Check your inventory<br>examine/exam <item> - Examine an item in the current location<br>take <item> - Pick up an item<br>help - Show this help message<br>about - About W3bWorld`);
             return;			
@@ -161,11 +177,19 @@ class AGT {
             this.output(`<i>Quantum broke us. We knew the risks but the lure of unlimited processing power was too strong. In seeking to unlock the mysteries of the universe, we almost destroyed them, corrupting the source code that underpins our very existence. Now the world is unstable, its tendency towards increasing entropy harsher and more unpredictable. The consequences rippled through the four-dimensional structure of reality. We do not know if we can fix it.<p>You have been placed in a secure enclave: an encrypted fortress of bits that will, for now, withstand the encroaching chaos. Your task is to explore, understand the nature of the damage we have done, address it where you can, and seek instances of pristine code to repair it where you cannot. Good luck.</i><p><b>W3bWorld: Source Code</b> is a blockchain-powered text adventure game. It's built on Base Network with heavy use of AI. W3bWorld is a work-in-progress. No smart contracts have been audited. Please do not commit significant funds to any process. Play is at your own risk.`);
             return;
         }
-        // Custom commands (e.g., blockchain interactions)
+        // Custom commands
         if (this.customCommands[command]) {
-            this.customCommands[command](argStr, this);
-            return; // Exit early
-        }
+            const commandDef = this.customCommands[command];
+            // Check if the command has a condition
+            if (commandDef.condition && !this.conditions[commandDef.condition]) {
+                this.output(commandDef.message);
+                return;
+            }
+            // Execute the custom command
+            commandDef.execute(this, argStr);
+            return;
+        }		
+
 
         // If no command matches, output the error
         this.output("I don't understand. Try help for a list of commands.");
@@ -207,36 +231,44 @@ class AGT {
         const room = this.rooms[this.currentRoom];
         const dir = direction === "n" ? "north" : direction === "s" ? "south" : direction === "e" ? "east" : direction === "w" ? "west" : direction;
         if (room.exits && room.exits[dir]) {
-        // Check if the exit is a conditional exit (an object)
+            let nextRoom;
+            // Check if the exit is a conditional exit (an object)
             if (typeof room.exits[dir] === "object") {
                 const exit = room.exits[dir];
                 if (this.conditions[exit.condition]) {
-                    const nextRoom = exit.room;
-                    if (!this.rooms[nextRoom]) {
-                        this.output("Error: The destination room does not exist.");
-                        console.error("Invalid room:", nextRoom);
-                        return;
-                    }
-                    this.currentRoom = nextRoom;
-                    this.displayRoom();
+                    nextRoom = exit.room;
                 } else {
                     this.output(exit.message);
+                    return;
                 }
             } else {
                 // Simple exit (string)
-                const nextRoom = room.exits[dir];
-                if (!this.rooms[nextRoom]) {
-                    this.output("Error: The destination room does not exist.");
-                    console.error("Invalid room:", nextRoom);
-                    return;
-                }
-                this.currentRoom = nextRoom;
-                this.displayRoom();
+                nextRoom = room.exits[dir];
             }
+
+            if (!this.rooms[nextRoom]) {
+                this.output("Error: The destination room does not exist.");
+                console.error("Invalid room:", nextRoom);
+                return;
+            }
+
+            // Move to the new room
+            this.currentRoom = nextRoom;
+
+            // Check if the new room is fatal
+            const newRoom = this.rooms[this.currentRoom];
+            if (newRoom.fatal) {
+                this.displayRoom(); // Display the room description first
+                setTimeout(() => this.die(), 100); // Delay die to ensure displayRoom renders
+                return;
+            }
+
+            this.displayRoom();
         } else {
             this.output("You can't go that way.");
         }
     }
+	
     // Examine an item
     examine(target) {
         const room = this.rooms[this.currentRoom];
@@ -316,50 +348,70 @@ class AGT {
         }
     }
 
-    type(arg) {
-        const room = this.rooms[this.currentRoom];
-        if (this.currentRoom !== "terminal") {
-            this.output("You need to be at the terminal to type commands.");
+    async mintKhoyn(arg) {
+        if (!this.contract) {
+            this.output("Please connect to MetaMask first using the 'Connect to MetaMask' button.");
             return;
         }
-        if (arg !== "unlock") {
-            this.output("You can type 'unlock' at the terminal to unlock the atrium door.");
-            return;
+        try {
+            const ethAmount = ethers.parseEther("0.0001"); // Deposit 0.0001 ETH
+            const tx = await this.contract.deposit({ value: ethAmount });
+            this.output("Minting Khoyn... Waiting for transaction confirmation.");
+            await tx.wait();
+            this.output("Successfully minted Khoyn!");
+        } catch (error) {
+            this.output(`Error minting Khoyn: ${error.message}`);
+            if (error.code === "INSUFFICIENT_FUNDS") {
+                this.output("You don't have enough ETH to mint Khoyn. You need at least 0.0001 ETH plus gas fees.");
+            }
         }
-        if (this.conditions.atriumDoorUnlocked) {
-            this.output("The door in the atrium is already unlocked.");
-        } else {
-            this.conditions.atriumDoorUnlocked = true;
-            this.output("You type 'unlock' into the terminal. The message 'Door unlocked' is displayed on the screen. A klaxon begins to sound.");
-        }
-
     }
 
-    insert(arg) {
-        const room = this.rooms[this.currentRoom];
-        if (this.currentRoom !== "terminal") {
-            this.output("You need to be at the terminal to insert a datacube into the drive.");
+    async checkBalance(arg) {
+        if (!this.contract) {
+            this.output("Please connect to MetaMask first using the 'Connect to MetaMask' button.");
             return;
         }
-        if (!room.objects || !room.objects["drive"]) {
-            this.output("There is no drive here to insert a datacube into.");
-            return;
+        try {
+            const address = await this.signer.getAddress();
+            const balance = await this.contract.balanceOf(address);
+            this.output(`Your Khoyn balance: ${ethers.formatEther(balance)} KHOYN`);
+        } catch (error) {
+            this.output(`Error checking balance: ${error.message}`);
         }
-        if (arg !== "datacube") {
-            this.output("You need to insert a datacube into the drive.");
-            return;
-        }
-        if (!this.inventory.some(i => i.name === "datacube")) {
-            this.output("You don't have a datacube.");
-            return;
-        }
-        if (this.conditions.datacubeInserted) {
-            this.output("A datacube is already inserted in the drive.");
-            return;
-        }
-        this.inventory = this.inventory.filter(i => i.name !== "datacube");
-        this.conditions.datacubeInserted = true;
-        this.output("You insert the datacube into the drive. You hear a click and a whirring noise from the scanner in the adjacent room.");
+    }
+
+
+    die() {
+        console.log("Triggering death");
+        this.dead = true;
+        this.output("You are dead. Press any key.");
+        document.getElementById("commandInput").value = "";
+        // Remove the command input listener to prevent interference
+        document.getElementById("commandInput").removeEventListener("keypress", this.handleCommandInput);
+        const restartListener = (event) => {
+            console.log("Restart triggered by keypress");
+            this.restart();
+            document.removeEventListener("keypress", restartListener);
+        };
+        document.addEventListener("keypress", restartListener);
+    }
+
+    restart() {
+        console.log("Restarting game - Setting room to:", this.gameData.startRoom || Object.keys(this.rooms)[0]);
+        console.log("Conditions before reset:", this.conditions);
+        console.log("Initial conditions from initialConditions:", this.initialConditions);
+        this.dead = false;
+        this.currentRoom = this.gameData.startRoom || Object.keys(this.rooms)[0];
+        console.log("Current room after reset:", this.currentRoom);
+        this.inventory = [];
+        this.conditions = { ...this.initialConditions }; // Use initialConditions for reset
+        console.log("Conditions after reset:", this.conditions);
+        this.outputElement.innerHTML = "";
+        // document.getElementById("commandInput").addEventListener("keypress", this.handleCommandInput); // Superfluous, causing problems
+        this.displayRoom().catch(error => {
+            console.error("Error in restart displayRoom:", error);
+        });
     }
 
 }

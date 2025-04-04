@@ -55,43 +55,65 @@ async function initWeb3(game) {
 }
 
 
-// Mint Khoyn by depositing ETH
-async function mintKhoyn(arg, game) {
-    if (!contract) {
-        game.output("Please connect to MetaMask first using the 'Connect to MetaMask' button.");
-        return;
-    }
-    try {
-        const ethAmount = ethers.parseEther("0.0001"); // Deposit 0.0001 ETH
-        const tx = await contract.deposit({ value: ethAmount });
-        game.output("Minting Khoyn... Waiting for transaction confirmation.");
-        await tx.wait();
-        game.output("Successfully minted Khoyn!");
-    } catch (error) {
-        game.output(`Error minting Khoyn: ${error.message}`);
-        if (error.code === "INSUFFICIENT_FUNDS") {
-            game.output("You don't have enough ETH to mint Khoyn. You need at least 0.0001 ETH plus gas fees.");
-        }
-    }
-}
-
-// Check Khoyn balance
-async function checkBalance(arg, game) {
-    if (!contract) {
-        game.output("Please connect to MetaMask first using the 'Connect to MetaMask' button.");
-        return;
-    }
-    try {
-        const address = await signer.getAddress();
-        const balance = await contract.balanceOf(address);
-        game.output(`Your Khoyn balance: ${ethers.formatEther(balance)} KHOYN`);
-    } catch (error) {
-        game.output(`Error checking balance: ${error.message}`);
-    }
-}
-
 // Game data for W3bWorld
 const gameData = {
+    conditions: { // Define initial conditions here
+        atriumDoorUnlocked: false,
+        datacubeInserted: false
+    },
+    commands: { // Define bespoke commands here
+        type: {
+            execute: (agt, arg) => {
+                if (agt.currentRoom !== "terminal") {
+                    agt.output("You need to be at the terminal to type commands.");
+                    return;
+                }
+                const room = agt.rooms[agt.currentRoom];
+                if (!room.objects || !room.objects["terminal"]) {
+                    agt.output("There is no terminal here to type on.");
+                    return;
+                }
+                if (arg !== "unlock") {
+                    agt.output("You can type 'unlock' at the terminal to unlock the atrium door.");
+                    return;
+                }
+                if (agt.conditions.atriumDoorUnlocked) {
+                    agt.output("The door in the atrium is already unlocked.");
+                } else {
+                    agt.conditions.atriumDoorUnlocked = true;
+                    agt.output("You type 'unlock' into the terminal. The door in the atrium is now unlocked.");
+                }
+            }
+        },
+        insert: {
+            execute: (agt, arg) => {
+                if (agt.currentRoom !== "terminal") {
+                    agt.output("You need to be at the terminal to insert a datacube into the drive.");
+                    return;
+                }
+                const room = agt.rooms[agt.currentRoom];
+                if (!room.objects || !room.objects["drive"]) {
+                    agt.output("There is no drive here to insert a datacube into.");
+                    return;
+                }
+                if (arg !== "datacube") {
+                    agt.output("You need to insert a datacube into the drive.");
+                    return;
+                }
+                if (!agt.inventory.some(i => i.name === "datacube")) {
+                    agt.output("You don't have a datacube.");
+                    return;
+                }
+                if (agt.conditions.datacubeInserted) {
+                    agt.output("A datacube is already inserted in the drive.");
+                    return;
+                }
+                agt.inventory = agt.inventory.filter(i => i.name !== "datacube");
+                agt.conditions.datacubeInserted = true;
+                agt.output("You insert the datacube into the drive. The scanner in the adjacent room is now active.");
+            }
+        }
+    },		
     startRoom: "atrium",
     rooms: {
         scanner: {
@@ -101,7 +123,7 @@ const gameData = {
             items: {}			
         },
         atrium: {
-            description: "You are standing in a white room. A locked door lies to the east. A broad window faces out onto a decaying city.",
+            description: "You are standing in a white room. A heavy metal door lies to the east. A broad window faces out onto a decaying city.",
             exits: { 
                 south: "scanner", 
                 east: {
@@ -113,6 +135,13 @@ const gameData = {
             items: {},
             objects: { door: "The door is electronically locked and has no keyhole or keypad. It has a thick seal around the edge.", window: "The window is made from 5cm-thick reinforced glass." },
         },
+        outside: {
+		    description: "You are outside of the secure enclave. Entropy is dangerously high. Electromagnetic radiation interfering with your brain activity causes pulses of light behind your eyes. You feel your heart go into arrhythmia.<p>",
+            fatal: true,
+            exits: {},
+            objects: {},
+            items: {}			
+        },			
         terminal: {
             description: "You are in a room lit only by the light of a dusty computer terminal.",
             exits: { west: "scanner" },
@@ -121,27 +150,10 @@ const gameData = {
             itemArt: { datacube: "datacube" }
         }
     },
-    customCommands: {
-        "mint": (arg, game) => {
-            if (arg === "khoyn") mintKhoyn(arg, game);
-            else game.output("Use 'mint khoyn' to mint Khoyn tokens.");
-        },
-        "check": (arg, game) => {
-            if (arg === "balance") checkBalance(arg, game);
-            else game.output("Use 'check balance' to check your Khoyn balance.");
-        },
-        "shout": (arg, game) => {
-            game.output("Your voice echoes in the room, but nothing happens.");
-        },
-        "lie": (arg, game) => {
-            if (game.currentRoom === "scanner") {
-                game.output("You lie in the scanner..");
-            } else {
-                game.output("You lie on the floor.");
-            }
-        }
-    }
+
 };
+
+
 
 // Initialize the game with AGT
 const game = new AGT(gameData);
