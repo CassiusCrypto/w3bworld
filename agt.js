@@ -2,9 +2,11 @@
 class AGT {
     constructor(gameData) {
         this.gameData = gameData; // Store gameData for later use
-        this.rooms = gameData.rooms || {};
-        this.currentRoom = gameData.startRoom || Object.keys(this.rooms)[0];
+        this.initialRooms = JSON.parse(JSON.stringify(gameData.rooms)); // Deep copy of rooms
+        console.log("Initial rooms stored:", this.initialRooms);
+        this.rooms = JSON.parse(JSON.stringify(gameData.rooms)); // Deep copy for working rooms
         console.log("Rooms:", this.rooms);
+        this.currentRoom = gameData.startRoom || Object.keys(this.rooms)[0];
         console.log("Current room:", this.currentRoom);
         this.inventory = [];
         this.initialConditions = { ...gameData.conditions }; // Store initial conditions
@@ -222,7 +224,7 @@ class AGT {
         if (inventoryDisplay.length) {
             this.output(`Inventory<br>On-chain: ${khoynDisplay}${inventoryDisplay.length ? "<br>Off-chain: " + inventoryDisplay.join(", ") : ""}`);
         } else {
-            this.output(`Inventory<br>${khoynDisplay}`);
+            this.output(`Inventory<br>On-chain: ${khoynDisplay}`);
         }
     }
 
@@ -405,6 +407,8 @@ class AGT {
         this.currentRoom = this.gameData.startRoom || Object.keys(this.rooms)[0];
         console.log("Current room after reset:", this.currentRoom);
         this.inventory = [];
+        this.rooms = JSON.parse(JSON.stringify(this.initialRooms)); // Reset rooms to initial state
+        console.log("Rooms after reset:", this.rooms);
         this.conditions = { ...this.initialConditions }; // Use initialConditions for reset
         console.log("Conditions after reset:", this.conditions);
         this.outputElement.innerHTML = "";
