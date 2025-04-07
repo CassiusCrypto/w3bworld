@@ -73,16 +73,33 @@ const gameData = {
                     agt.output("There is no terminal here to type on.");
                     return;
                 }
-                if (arg !== "unlock") {
-                    agt.output("You can type 'unlock' at the terminal to unlock the atrium door.");
+                if (!["unlock", "help", "upload", "sudo unlock"].includes(arg)) {
+                    agt.output("Recognized commands include 'upload', 'unlock', 'lock', 'help'.");
                     return;
                 }
-                if (agt.conditions.atriumDoorUnlocked) {
-                    agt.output("The door in the atrium is already unlocked.");
-                } else {
-                    agt.conditions.atriumDoorUnlocked = true;
-                    agt.output("You type 'unlock' into the terminal. The door in the atrium is now unlocked.");
+                if (arg === "help") {
+                    // Placeholder for help subcommand
+                    agt.output("Terminal Help:<br><i>My name's Carter, and if you're reading this, you're a Porter like me, which means you're going to need all the help you can get. I managed to hack a message into the console on one of my brief return journeys. I guess it's possible I'll see you in 'there', somewhere, but the odds of us overlapping are remote and the odds I'm already dead are high. I'm sorry, but those are the risks we all take.<br>You need to remember that everything you see is real. The fact that this is simulation doesn't change that. When you can manipulate the fabric of reality then there's no difference between reality and simulation. It's just a shame we started tampering with the universe before we properly understood it. Stay safe and Godspeed. And whatever you do, don't go outside.</i><p>Recognized commands include 'upload', 'unlock', 'help'.");
+                    return;
                 }
+                if (arg === "upload") {
+                    // Placeholder for upload subcommand
+                    agt.output("You type 'upload' into the terminal. Nothing happens.");
+                    return;
+                }				
+                if (arg === "unlock") {
+                    agt.output("Permission denied.");	
+                    return;				   
+                }				   
+                if (arg === "sudo unlock") {
+                    if (agt.conditions.atriumDoorUnlocked) {
+                        agt.output("The door in the atrium is already unlocked.");
+                    } else {
+                        agt.conditions.atriumDoorUnlocked = true;
+                        agt.output("You type 'sudo unlock' into the terminal. You hear the whine of servo motors and the sound of heavy bolts moving in the next room. A klaxon begins to sound throughout the building and a red light starts flashing.");
+                    }
+                    return;
+				}
             }
         },
         insert: {
@@ -105,27 +122,41 @@ const gameData = {
                     return;
                 }
                 if (agt.conditions.datacubeInserted) {
-                    agt.output("A datacube is already inserted in the drive.");
+                    agt.output("A datacube is already in the drive.");
                     return;
                 }
                 agt.inventory = agt.inventory.filter(i => i.name !== "datacube");
                 agt.conditions.datacubeInserted = true;
-                agt.output("You insert the datacube into the drive. The scanner in the adjacent room is now active.");
+                agt.output("You insert the datacube into the drive.");
+                room.items["datacube"] = "The datacube can hold thousands of petabytes of data at the subatomic level. This one is a dull grey color, indicating it is empty.";
+            }
+        },
+        take: {
+            execute: (agt, arg) => {
+                // Check if the item being taken is the datacube
+                if (arg === "datacube" && agt.conditions.datacubeInserted) {
+                    // Reset the datacubeInserted condition
+                    agt.conditions.datacubeInserted = false;
+                    agt.output("The datacube is currently in the drive.");
+                }
+                // Call the core take method to handle the default behavior
+                agt.take(arg);
             }
         }
     },		
     startRoom: "atrium",
     rooms: {
         scanner: {
-            description: "You are in a small room containing a medical scanner.",
-            exits: { north: "atrium", east: "terminal" },
-            objects: { scanner: "The scanner contains a couch. On the outside of the scanner there is a 2cm square recess. Inside the scanner is a green button." },
-            items: {}			
+            description: "You are in a medical scanning booth. There is a console with a screen in front of you.",
+            exits: { north: "atrium" },
+            objects: { console: "The console has a 2cm square recess. Below the console is a button.", button: "The button is green and round." },
+            items: {},
+            roomArt: "art/scan.jpg"			
         },
         atrium: {
             description: "You are standing in a white room. A heavy metal door lies to the east. A broad window faces out onto a decaying city.",
             exits: { 
-                south: "scanner", 
+                south: "scanner", west: "terminal", 
                 east: {
 					room: "outside",
                     condition: "atriumDoorUnlocked",
@@ -134,25 +165,27 @@ const gameData = {
             },
             items: {},
             objects: { door: "The door is electronically locked and has no keyhole or keypad. It has a thick seal around the edge.", window: "The window is made from 5cm-thick reinforced glass." },
+            roomArt: "art/city2.jpg" // Room image URL
         },
         outside: {
 		    description: "You are outside of the secure enclave. Entropy is dangerously high. Electromagnetic radiation interfering with your brain activity causes pulses of light behind your eyes. You feel your heart go into arrhythmia.<p>",
             fatal: true,
             exits: {},
             objects: {},
-            items: {}			
+            items: {},
+            roomArt: "art/rip.png"			
         },			
         terminal: {
             description: "You are in a room lit only by the light of a dusty computer terminal.",
-            exits: { west: "scanner" },
-            items: { datacube: "Beneath the shifting translucent surface of the datacube, thousands of petabytes of data can be stored at the subatomic level." },
+            exits: { east: "atrium" },
+            items: { datacube: "The datacube can hold thousands of petabytes of data at the subatomic level. This one is a dull grey color, indicating it is empty." },
             objects: { terminal: "The terminal is a Quantech 4 model with an Optical Drive for ultra-high-volume data transfer.", drive: "The Drive has a square recess, 2cm on each side, designed to accept a standard datacube."},
-            itemArt: { datacube: "datacube" }
+            itemArt: { datacube: "art/cube.jpg" },
+            roomArt: "art/terminal.jpg"
         }
     },
 
-};
-
+}
 
 
 // Initialize the game with AGT

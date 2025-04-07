@@ -58,47 +58,119 @@ class AGT {
         this.outputElement.scrollTop = this.outputElement.scrollHeight;
     }
 
-    // Display ASCII art in the artBox by fetching from a file
-    async displayArt(artFile) {
-        console.log("Fetching art for:", artFile);
+    async imgToAscii(imageUrl) {
         try {
-            const response = await fetch(`art/${artFile}.txt`);
-            if (!response.ok) {
-                throw new Error(`Failed to load art for ${artFile}`);
+            const density = '$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,"^`\'. ';
+            const densityLength = density.length;
+
+            const img = new Image();
+            // Remove img.crossOrigin = "Anonymous" for local files
+            img.src = imageUrl;
+
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+            });
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            const targetWidth = 128;
+            const aspectRatio = img.height / img.width;
+            const targetHeight = Math.round(targetWidth * aspectRatio);
+
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+
+            ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+            const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+            const pixels = imageData.data;
+
+            let asciiArt = '';
+            for (let y = 0; y < targetHeight; y++) {
+                for (let x = 0; x < targetWidth; x++) {
+                    const index = (y * targetWidth + x) * 4;
+                    const r = pixels[index];
+                    const g = pixels[index + 1];
+                    const b = pixels[index + 2];
+                    const brightness = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+                    const charIndex = Math.floor((brightness / 255) * (densityLength - 1));
+                    asciiArt += density[charIndex];
+                }
+                asciiArt += '\n';
             }
-            let art = await response.text();
-            // Normalize line endings and trim trailing whitespace
-            // art = art.replace(/\r\n/g, '\n').split('\n').map(line => line.trimEnd()).join('\n');
-            art = art.replace(/\r\n/g, '\n');
-            console.log("Fetched art (raw):", JSON.stringify(art));
 
-            // Escape HTML characters to prevent rendering issues
-            const escapeHTML = (str) => {
-                return str.replace(/&/g, '&amp;')
-                         .replace(/</g, '&lt;')
-                         .replace(/>/g, '&gt;')
-                         .replace(/"/g, '&quot;')
-                         .replace(/'/g, '&#39;');
-            };
-            const escapedArt = escapeHTML(art);
-
-            // Split the art into lines to find the widest line
-            const lines = escapedArt.split('\n');
-            const maxWidthChars = Math.max(...lines.map(line => line.length));
-        
-            // Estimate the pixel width of the art (font-size: 12px, monospace font)
-            const charWidth = 12 * 0.6;
-            const artWidthPx = maxWidthChars * charWidth;
-
-            // Output the art in a centered container
-            this.artBoxElement.innerHTML = `
-                <div class="artWrapper" style="min-width: ${artWidthPx}px;">
-                    <pre>${escapedArt}</pre>
-                </div>
-            `;
+            const artOutput = `<pre style="font-family: monospace; line-height: 1; color: #00ff00; background: #000;">${asciiArt}</pre>`;
+            this.artBoxElement.innerHTML = artOutput; // Set directly
+            return artOutput; // Return the ASCII art
         } catch (error) {
-            console.log("Error fetching art:", error);
-            // Do nothing, preserving current art
+            console.error("Error in imgToAscii:", error);
+            const errorOutput = '<pre style="font-family: monospace; line-height: 1; background: #000;">Error loading ASCII art.</pre>';
+            this.artBoxElement.innerHTML = errorOutput; // Set directly
+            return errorOutput; // Return the error message
+        }
+    }
+
+    // Display ASCII art in the artBox by fetching from a file
+    async imgToAscii(imageUrl) {
+        try {
+            const density = '$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,"^`\'. ';
+            const densityLength = density.length;
+
+            const img = new Image();
+            img.src = imageUrl;
+
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+            });
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Target width in characters
+            const targetWidth = 128;
+            // Adjust for aspect ratio of ASCII characters (approx. 2:1 height:width)
+            const asciiAspectRatio = 2; // Characters are twice as tall as wide
+            const aspectRatio = img.height / img.width;
+            // Calculate target height in characters, accounting for ASCII aspect ratio
+            const targetHeight = Math.round((targetWidth * aspectRatio) / asciiAspectRatio);
+
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+
+            ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+            const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+            const pixels = imageData.data;
+
+            let asciiArt = '';
+            for (let y = 0; y < targetHeight; y++) {
+                for (let x = 0; x < targetWidth; x++) {
+                    const index = (y * targetWidth + x) * 4;
+                    const r = pixels[index];
+                    const g = pixels[index + 1];
+                    const b = pixels[index + 2];
+                    const brightness = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+                    const charIndex = Math.floor((brightness / 255) * (densityLength - 1));
+                    const char = density[charIndex];
+                    // Apply brightness-based shading (green gradient)
+                    const greenValue = Math.round(50 + (brightness / 255) * (255 - 50));
+                    const color = `rgb(0, ${greenValue}, 0)`;
+                    asciiArt += `<span style="color: ${color}">${char}</span>`;
+                }
+                asciiArt += '\n';
+            }
+
+            const artOutput = `<pre style="font-family: monospace; line-height: 1; background: #000;">${asciiArt}</pre>`;
+            this.artBoxElement.innerHTML = artOutput;
+            return artOutput;
+        } catch (error) {
+            console.error("Error in imgToAscii:", error);
+            const errorOutput = '<pre style="font-family: monospace; line-height: 1; background: #000;">Error loading ASCII art.</pre>';
+            this.artBoxElement.innerHTML = errorOutput;
+            return errorOutput;
         }
     }
 
@@ -122,9 +194,15 @@ class AGT {
             this.output("Exits: " + Object.keys(room.exits).join(", "));
             console.log("Output exits done");
         }
-        console.log("Calling displayArt");
-        await this.displayArt(this.currentRoom);
-        console.log("displayArt completed");
+        console.log("Generating ASCII art for room");
+        if (room.roomArt) {
+            const roomArt = await this.imgToAscii(room.roomArt);
+            this.artBoxElement.innerHTML = roomArt;
+        } else {
+            this.artBoxElement.innerHTML = '';
+        }
+
+        console.log("imgToAscii completed");
     }
 	
     // Parse and handle player commands
@@ -136,6 +214,19 @@ class AGT {
 	
         const [command, ...args] = input.toLowerCase().split(" ");
         const argStr = args.join(" ");
+
+        // Check custom commands in case there are special conditions
+        if (this.customCommands[command]) {
+            const commandDef = this.customCommands[command];
+            // Check if the command has a condition
+            if (commandDef.condition && !this.conditions[commandDef.condition]) {
+                this.output(commandDef.message);
+                return;
+            }
+            // Execute the custom command
+            commandDef.execute(this, argStr);
+            return;
+        }		
 
         // Movement commands
         if (["north", "south", "east", "west", "n", "s", "e", "w"].includes(command)) {
@@ -172,26 +263,13 @@ class AGT {
             return;
         }		
         if (command === "help" || command === "h") {
-            this.output(`Available Commands:<br>north/n, south/s, west/w, east/e - Move to new location<br>look/l - Look around the current location<br>inventory/i - Check your inventory<br>examine/exam <item> - Examine an item in the current location<br>take <item> - Pick up an item<br>help - Show this help message<br>about - About W3bWorld`);
+            this.output(`Standard commands:<br>north/n, south/s, west/w, east/e - Move to new location<br>look/l - Look around the current location<br>inventory/i - Check your inventory<br>examine/exam <item> - Examine an item in the current location<br>take <item> - Pick up an item<br>use item/object with item/object - use something with something else<br>mint - mint khoyn (on-chain)<br>check balance - check khoyn balance<br>help - Show this help message<br>about - About W3bWorld`);
             return;			
         }			
         if (command === "about") {
             this.output(`<i>Quantum broke us. We knew the risks but the lure of unlimited processing power was too strong. In seeking to unlock the mysteries of the universe, we almost destroyed them, corrupting the source code that underpins our very existence. Now the world is unstable, its tendency towards increasing entropy harsher and more unpredictable. The consequences rippled through the four-dimensional structure of reality. We do not know if we can fix it.<p>You have been placed in a secure enclave: an encrypted fortress of bits that will, for now, withstand the encroaching chaos. Your task is to explore, understand the nature of the damage we have done, address it where you can, and seek instances of pristine code to repair it where you cannot. Good luck.</i><p><b>W3bWorld: Source Code</b> is a blockchain-powered text adventure game. It's built on Base Network with heavy use of AI. W3bWorld is a work-in-progress. No smart contracts have been audited. Please do not commit significant funds to any process. Play is at your own risk.`);
             return;
         }
-        // Custom commands
-        if (this.customCommands[command]) {
-            const commandDef = this.customCommands[command];
-            // Check if the command has a condition
-            if (commandDef.condition && !this.conditions[commandDef.condition]) {
-                this.output(commandDef.message);
-                return;
-            }
-            // Execute the custom command
-            commandDef.execute(this, argStr);
-            return;
-        }		
-
 
         // If no command matches, output the error
         this.output("I don't understand. Try help for a list of commands.");
@@ -271,45 +349,80 @@ class AGT {
         }
     }
 	
-    // Examine an item
     examine(target) {
         const room = this.rooms[this.currentRoom];
+        let found = false;
+
         // Check room items first
-        if (room.items[target]) {
-            this.output(room.items[target]); // Description is the value directly
+        if (room.items && room.items[target]) {
+            this.output(room.items[target]); // Description is the string value directly
             if (room.itemArt && room.itemArt[target]) {
-                this.displayArt(room.itemArt[target]);
+                this.imgToAscii(room.itemArt[target]).then(art => {
+                    this.artBoxElement.innerHTML = art;
+                }).catch(error => {
+                    console.error("Error displaying item art:", error);
+                    this.artBoxElement.innerHTML = "Error loading item art.";
+                });
+            } else {
+                this.artBoxElement.innerHTML = ''; // Clear art box if no art
             }
-            return;
+            found = true;
         }
+
         // Check room objects
         if (room.objects && room.objects[target]) {
-            this.output(room.objects[target]); // Description is the value directly
+            this.output(room.objects[target]); // Description is the string value directly
             if (room.objectArt && room.objectArt[target]) {
-                this.displayArt(room.objectArt[target]);
+                this.imgToAscii(room.objectArt[target]).then(art => {
+                    this.artBoxElement.innerHTML = art;
+                }).catch(error => {
+                    console.error("Error displaying object art:", error);
+                    this.artBoxElement.innerHTML = "Error loading object art.";
+                });
+            } else {
+                this.artBoxElement.innerHTML = ''; // Clear art box if no art
             }
-            return;
+            found = true;
         }
+
         // Check inventory
         const inventoryItem = this.inventory.find(item => item.name === target);
         if (inventoryItem) {
-            this.output(inventoryItem.description);
-            // Look up the art from the current room's itemArt (or search all rooms if needed)
+            this.output(inventoryItem.description); // Use the description from the inventory item
+            // Look up the art from the current room's itemArt, or search all rooms
             if (room.itemArt && room.itemArt[target]) {
-                this.displayArt(room.itemArt[target]);
+                this.imgToAscii(room.itemArt[target]).then(art => {
+                    this.artBoxElement.innerHTML = art;
+                }).catch(error => {
+                    console.error("Error displaying inventory item art:", error);
+                    this.artBoxElement.innerHTML = "Error loading item art.";
+                });
             } else {
-                // Optionally search all rooms for the item's art
+                let artFound = false;
                 for (const roomKey in this.rooms) {
                     if (this.rooms[roomKey].itemArt && this.rooms[roomKey].itemArt[target]) {
-                        this.displayArt(this.rooms[roomKey].itemArt[target]);
+                        this.imgToAscii(this.rooms[roomKey].itemArt[target]).then(art => {
+                            this.artBoxElement.innerHTML = art;
+                        }).catch(error => {
+                            console.error("Error displaying inventory item art:", error);
+                            this.artBoxElement.innerHTML = "Error loading item art.";
+                        });
+                        artFound = true;
                         break;
                     }
                 }
+                if (!artFound) {
+                    this.artBoxElement.innerHTML = ''; // Clear art box if no art found
+                }
             }
-            return;
+            found = true;
         }
+
         // If not found anywhere
-        this.output("There's nothing like that to examine.");
+        if (!found) {
+            this.output("There's nothing like that to examine.");
+            this.artBoxElement.innerHTML = ''; // Clear art box
+        }
     }
 
     // Take an item
@@ -329,8 +442,8 @@ class AGT {
     // Use an item
     use(itemStr) {
         const [item, preposition, target] = itemStr.split(" ");
-        if (preposition !== "on" || !target) {
-            this.output("Use items like this: use &lt;item&gt; on &lt;target&gt;");
+        if (preposition !== "with" || !target) {
+            this.output("Use items like this: use &lt;item&gt; with &lt;target&gt;");
             return;
         }
         const room = this.rooms[this.currentRoom];
@@ -343,7 +456,7 @@ class AGT {
                 const action = room.useActions[item][target];
                 action(this);
             } else {
-                this.output(`You can't use the ${item} on the ${target}.`);
+                this.output(`You can't use the ${item} with the ${target}.`);
             }
         } else {
             this.output(`There's no ${target} here.`);
