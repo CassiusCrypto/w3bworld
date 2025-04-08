@@ -104,53 +104,127 @@ const gameData = {
         },
         insert: {
             execute: (agt, arg) => {
-                if (agt.currentRoom !== "terminal") {
-                    agt.output("You need to be at the terminal to insert a datacube into the drive.");
+                // Check if the player is in a room where inserting a datacube is allowed
+                if (!["terminal", "scanner"].includes(agt.currentRoom)) {
+                    agt.output("You need to be in a room with a drive or scanner to insert a datacube.");
                     return;
                 }
+
                 const room = agt.rooms[agt.currentRoom];
-                if (!room.objects || !room.objects["drive"]) {
-                    agt.output("There is no drive here to insert a datacube into.");
-                    return;
+                // Check for the appropriate object based on the room
+                if (agt.currentRoom === "terminal") {
+                    if (!room.objects || !room.objects["drive"]) {
+                        agt.output("There is no drive here to insert a datacube into.");
+                        return;
+                    }
+                } else if (agt.currentRoom === "scanner") {
+                    if (!room.objects || !room.objects["scanner"]) {
+                        agt.output("There is no scanner here to insert a datacube into.");
+                        return;
+                    }
                 }
+
+                // Check if the argument is "datacube"
                 if (arg !== "datacube") {
-                    agt.output("You need to insert a datacube into the drive.");
+                    agt.output("You cannot insert that.");
                     return;
                 }
+
+                // Check if the player has a datacube in their inventory
                 if (!agt.inventory.some(i => i.name === "datacube")) {
                     agt.output("You don't have a datacube.");
                     return;
                 }
-                if (agt.conditions.datacubeInserted) {
+
+                // Check if a datacube is already inserted in the current room's device
+                if (agt.currentRoom === "terminal" && agt.conditions.datacubeInserted) {
                     agt.output("A datacube is already in the drive.");
                     return;
                 }
+                if (agt.currentRoom === "scanner" && agt.conditions.dataScannerInserted) {
+                    agt.output("A datacube is already in the scanner.");
+                    return;
+                }
+
+                // Remove the datacube from inventory
                 agt.inventory = agt.inventory.filter(i => i.name !== "datacube");
-                agt.conditions.datacubeInserted = true;
-                agt.output("You insert the datacube into the drive.");
+
+                // Set the appropriate condition and output message based on the room
+                if (agt.currentRoom === "terminal") {
+                    agt.conditions.datacubeInserted = true;
+                    agt.output("You insert the datacube into the drive.");
+                } else if (agt.currentRoom === "scanner") {
+                    agt.conditions.dataScannerInserted = true;
+                    agt.output("You insert the datacube into the scanner.");
+                }
+
+                // Add the datacube back to the room's items so it can be taken again
                 room.items["datacube"] = "The datacube can hold thousands of petabytes of data at the subatomic level. This one is a dull grey color, indicating it is empty.";
             }
         },
-        take: {
+        take: { // Custom condition to allow item to be taken and condition reset
             execute: (agt, arg) => {
-                // Check if the item being taken is the datacube
-                if (arg === "datacube" && agt.conditions.datacubeInserted) {
-                    // Reset the datacubeInserted condition
-                    agt.conditions.datacubeInserted = false;
-                    agt.output("The datacube is currently in the drive.");
+                if (arg === "datacube") {
+                    if (agt.currentRoom === "terminal" && agt.conditions.datacubeInserted) {
+                        agt.conditions.datacubeInserted = false;
+                        agt.output("The datacube is currently in the drive.");
+                    } else if (agt.currentRoom === "scanner" && agt.conditions.dataScannerInserted) {
+                        agt.conditions.dataScannerInserted = false;
+                        agt.output("The datacube is currently in the scanner.");
+                    }
                 }
-                // Call the core take method to handle the default behavior
                 agt.take(arg);
             }
-        }
+        },
+        press: {
+            execute: (agt, arg) => {
+                // Check if the player is in the scanner room
+                if (agt.currentRoom !== "scanner") {
+                    agt.output("You need to be in the scanner room to press anything.");
+                    return;
+                }
+
+                // Check if a button object exists in the room
+                const room = agt.rooms[agt.currentRoom];
+                if (!room.objects || !room.objects["button"]) {
+                    agt.output("There is no button here to press.");
+                    return;
+                }
+
+                // Check if an argument was provided
+                if (!arg) {
+                    agt.output("You need to press something.");
+                    return;
+                }
+
+                // Check if the argument is "button"
+                if (arg !== "button") {
+                    agt.output(`There's nothing like that to press here.`);
+                    return;
+                }
+
+                // At this point, arg === "button", the player is in the scanner room, and a button exists
+                if (agt.conditions.dataScannerInserted) {
+                    agt.output("You press the button. There is a whirring noise as scanners rapidly move around your head and body. The datacube in the scanner fills with light. You see a message on the screen: 'Scan complete. Soulcube is ready.'");
+                    room.items["soulcube"] = "Swirling shapes move across the surface of the glowing datacube, which now holds information representing every memory and neural connection in your brain.";
+                    room.itemArt = room.itemArt || {};
+                    room.itemArt["soulcube"] = "art/soulcube.jpg";					
+                    delete room.items["datacube"]; // Remove datacube and set inserted condition to false
+                    agt.conditions.dataScannerInserted = false;					
+                } else {
+                    agt.output("You press the button, but nothing happens.");
+                }
+            }
+        }			
     },		
     startRoom: "atrium",
     rooms: {
         scanner: {
             description: "You are in a medical scanning booth. There is a console with a screen in front of you.",
             exits: { north: "atrium" },
-            objects: { console: "The console has a 2cm square recess. Below the console is a button.", button: "The button is green and round." },
+            objects: { console: "The console has a 2cm square recess. Below the console is a button.", button: "The button is green and round.", scanner: "Hi-resolution medical scanning equipment is built into the walls of the booth." },
             items: {},
+            itemArt: {},			
             roomArt: "art/scan.jpg"			
         },
         atrium: {
