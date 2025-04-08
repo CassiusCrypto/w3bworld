@@ -79,12 +79,18 @@ const gameData = {
                 }
                 if (arg === "help") {
                     // Placeholder for help subcommand
-                    agt.output("Terminal Help:<br><i>My name's Carter, and if you're reading this, you're a Porter like me, which means you're going to need all the help you can get. I managed to hack a message into the console on one of my brief return journeys. I guess it's possible I'll see you in 'there', somewhere, but the odds of us overlapping are remote and the odds I'm already dead are high. I'm sorry, but those are the risks we all take.<br>You need to remember that everything you see is real. The fact that this is simulation doesn't change that. When you can manipulate the fabric of reality then there's no difference between reality and simulation. It's just a shame we started tampering with the universe before we properly understood it. Stay safe and Godspeed. And whatever you do, don't go outside.</i><p>Recognized commands include 'upload', 'unlock', 'help'.");
+                    agt.output("Terminal Help:<br><i>My name's Carter, and if you're reading this, you're a Porter like me, which means you're going to need all the help you can get. I managed to hack a message into the console on one of my brief return journeys.<br>You need to remember that everything you see is real. The fact that this is simulation doesn't change that. When you can manipulate the fabric of reality then there's no difference between reality and simulation. It's just a shame we started tampering with the universe before we properly understood it. Stay safe and Godspeed. I guess it's possible I'll see you in 'there', somewhere, but the odds of us overlapping are remote and the odds I'm already dead are high. I'm sorry, but those are the risks we all take.</i><p>Recognized commands include 'upload', 'unlock', 'help'.");
                     return;
                 }
                 if (arg === "upload") {
-                    // Placeholder for upload subcommand
-                    agt.output("You type 'upload' into the terminal. Nothing happens.");
+                    if (agt.conditions.soulCubeInserted) {
+                        agt.output("You type 'upload' into the terminal. Your memories and neural connections are uploaded into the quantum firmament, allowing you to port to an infinite universe of real and simulated existences. To access these you need to mint a Qkey. This is an on-chain operation.");
+                        // Optionally reset soulCubeInserted or trigger a new condition
+                    } else if (agt.conditions.datacubeInserted) {
+                        agt.output("You type 'upload' into the terminal. Nothing happens.");
+                    } else {
+                        agt.output("You type 'upload' into the terminal. Nothing happens.");
+                    }
                     return;
                 }				
                 if (arg === "unlock") {
@@ -104,78 +110,109 @@ const gameData = {
         },
         insert: {
             execute: (agt, arg) => {
-                // Check if the player is in a room where inserting a datacube is allowed
+                // Check if the player is in a room where inserting is allowed
                 if (!["terminal", "scanner"].includes(agt.currentRoom)) {
-                    agt.output("You need to be in a room with a drive or scanner to insert a datacube.");
+                    agt.output("There is nowhere to place that here.");
                     return;
                 }
 
                 const room = agt.rooms[agt.currentRoom];
-                // Check for the appropriate object based on the room
+                // Check for the appropriate object based on the room and item
                 if (agt.currentRoom === "terminal") {
                     if (!room.objects || !room.objects["drive"]) {
-                        agt.output("There is no drive here to insert a datacube into.");
+                        agt.output("There is no drive here to insert that into.");
                         return;
                     }
                 } else if (agt.currentRoom === "scanner") {
                     if (!room.objects || !room.objects["scanner"]) {
-                        agt.output("There is no scanner here to insert a datacube into.");
+                        agt.output("There is nowhere here to insert that.");
                         return;
                     }
                 }
 
-                // Check if the argument is "datacube"
-                if (arg !== "datacube") {
+                // Check if the argument is valid ("datacube" or "soulcube")
+                if (!["datacube", "soulcube"].includes(arg)) {
                     agt.output("You cannot insert that.");
                     return;
                 }
 
-                // Check if the player has a datacube in their inventory
-                if (!agt.inventory.some(i => i.name === "datacube")) {
-                    agt.output("You don't have a datacube.");
+                // For soulcube, ensure we're in the terminal room
+                if (arg === "soulcube" && agt.currentRoom !== "terminal") {
+                    agt.output("You cannot insert the soulcube into that.");
                     return;
                 }
 
-                // Check if a datacube is already inserted in the current room's device
-                if (agt.currentRoom === "terminal" && agt.conditions.datacubeInserted) {
-                    agt.output("A datacube is already in the drive.");
+                // Check if the player has the item in their inventory
+                if (!agt.inventory.some(i => i.name === arg)) {
+                    agt.output(`You don't have a ${arg}.`);
                     return;
+                }
+
+                // Check if an item is already inserted in the current room's device
+                if (agt.currentRoom === "terminal") {
+                    if (arg === "datacube" && agt.conditions.datacubeInserted) {
+                        agt.output("A datacube is already in the drive.");
+                        return;
+                    }
+                    if (arg === "soulcube" && agt.conditions.soulCubeInserted) {
+                        agt.output("A soulcube is already in the drive.");
+                        return;
+                    }
                 }
                 if (agt.currentRoom === "scanner" && agt.conditions.dataScannerInserted) {
                     agt.output("A datacube is already in the scanner.");
                     return;
                 }
 
-                // Remove the datacube from inventory
-                agt.inventory = agt.inventory.filter(i => i.name !== "datacube");
+                // Remove the item from inventory
+                agt.inventory = agt.inventory.filter(i => i.name !== arg);
 
-                // Set the appropriate condition and output message based on the room
+                // Set the appropriate condition and output message based on the room and item
                 if (agt.currentRoom === "terminal") {
-                    agt.conditions.datacubeInserted = true;
-                    agt.output("You insert the datacube into the drive.");
+                    if (arg === "datacube") {
+                        agt.conditions.datacubeInserted = true;					
+                        agt.output("You insert the datacube into the drive."); 
+                        room.items["datacube"] = "The datacube can hold thousands of petabytes of data at the subatomic level. This one is a dull grey color, indicating it is empty.";
+                    } else if (arg === "soulcube") {
+                        agt.conditions.soulCubeInserted = true;
+                        room.itemArt = room.itemArt || {};
+                        room.itemArt["soulcube"] = "art/soulcube.jpg";	// Needs to go back in the room to be examinable						
+                        agt.output("You insert the soulcube into the drive.");
+                        room.items["soulcube"] = "Swirling shapes move across the surface of the glowing soulcube, which holds information representing every memory and neural connection in your brain.";
+                    }
                 } else if (agt.currentRoom === "scanner") {
                     agt.conditions.dataScannerInserted = true;
                     agt.output("You insert the datacube into the scanner.");
+                    room.items["datacube"] = "The datacube can hold thousands of petabytes of data at the subatomic level. This one is a dull grey color, indicating it is empty.";
+                    room.itemArt = room.itemArt || {};
+                    room.itemArt["datacube"] = "art/cube.jpg";	// Needs to go back in the room to be examinable											
                 }
-
-                // Add the datacube back to the room's items so it can be taken again
-                room.items["datacube"] = "The datacube can hold thousands of petabytes of data at the subatomic level. This one is a dull grey color, indicating it is empty.";
             }
         },
-        take: { // Custom condition to allow item to be taken and condition reset
+
+        take: {
             execute: (agt, arg) => {
+                // Check if the item being taken is datacube or soulcube and if it's inserted
                 if (arg === "datacube") {
                     if (agt.currentRoom === "terminal" && agt.conditions.datacubeInserted) {
-                        agt.conditions.datacubeInserted = false;
                         agt.output("The datacube is currently in the drive.");
+                        agt.conditions.datacubeInserted = false;
                     } else if (agt.currentRoom === "scanner" && agt.conditions.dataScannerInserted) {
+                        agt.output("The datacube is currently in the scanner console.");
                         agt.conditions.dataScannerInserted = false;
-                        agt.output("The datacube is currently in the scanner.");
+                    }
+                } else if (arg === "soulcube") {
+                    if (agt.currentRoom === "terminal" && agt.conditions.soulCubeInserted) {
+                        agt.output("The soulcube is currently in the drive.");
+                        agt.conditions.soulCubeInserted = false;
                     }
                 }
+
+                // Call the core take command to handle the default behavior
                 agt.take(arg);
             }
         },
+		
         press: {
             execute: (agt, arg) => {
                 // Check if the player is in the scanner room
@@ -252,7 +289,7 @@ const gameData = {
         terminal: {
             description: "You are in a room lit only by the light of a dusty computer terminal.",
             exits: { east: "atrium" },
-            items: { datacube: "The datacube can hold thousands of petabytes of data at the subatomic level. This one is a dull grey color, indicating it is empty." },
+            items: { datacube: "The datacube can hold thousands of petabytes of data at the subatomic level. This one is a matt black color, indicating it is empty." },
             objects: { terminal: "The terminal is a Quantech 4 model with an Optical Drive for ultra-high-volume data transfer.", drive: "The Drive has a square recess, 2cm on each side, designed to accept a standard datacube."},
             itemArt: { datacube: "art/cube.jpg" },
             roomArt: "art/terminal.jpg"

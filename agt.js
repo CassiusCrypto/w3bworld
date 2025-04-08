@@ -263,7 +263,7 @@ class AGT {
             return;
         }		
         if (command === "help" || command === "h") {
-            this.output(`Standard commands:<br>north/n, south/s, west/w, east/e - Move to new location<br>look/l - Look around the current location<br>inventory/i - Check your inventory<br>examine/exam <item> - Examine an item in the current location<br>take <item> - Pick up an item<br>use item/object with item/object - use something with something else<br>mint - mint khoyn (on-chain)<br>check balance - check khoyn balance<br>help - Show this help message<br>about - About W3bWorld`);
+            this.output(`Standard commands:<br>north/n, south/s, west/w, east/e - Move to new location<br>look/l - Look around the current location<br>inventory/i - Check your inventory<br>examine/exam <item> - Examine an item in the current location<br>take <item> - Pick up an item<br>use item/object with item/object - use something with something else<br>mint - mint khoyn (on-chain)<br>balance - check khoyn balance<br>help/h - Show this help message<br>about - About W3bWorld`);
             return;			
         }			
         if (command === "about") {
@@ -490,7 +490,7 @@ class AGT {
         try {
             const address = await this.signer.getAddress();
             const balance = await this.contract.balanceOf(address);
-            this.output(`Your Khoyn balance: ${ethers.formatEther(balance)} KHOYN`);
+            this.output(`Your khoyn balance: ${ethers.formatEther(balance)} khoyn`);
         } catch (error) {
             this.output(`Error checking balance: ${error.message}`);
         }
