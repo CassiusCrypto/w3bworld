@@ -1,11 +1,21 @@
 // W3bWorld Game Definition using AGT
 
+// Nexus NFT: 0x3a109F1356c004cb6B066E2C57f444525E5caA67
+// https://basescan.org/address/0x3a109F1356c004cb6B066E2C57f444525E5caA67#writeContract
+
 // Blockchain integration
 const contractAddress = "0xa876eA30592a2576566C490360d2916F2D6ADf87"; // KhoynExchange contract address
 const contractABI = [
     "function deposit() external payable",
     "function balanceOf(address account) external view returns (uint256)"
 ];
+
+const nexusAbi = [
+    "function mint() external payable returns (uint256)",
+    "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
+];
+
+const nexusAddress = "0x3a109F1356c004cb6B066E2C57f444525E5caA67"; // Nexus NFT contract address 
 
 // Base Mainnet chain ID
 const BASE_MAINNET_CHAIN_ID = 8453;
@@ -14,52 +24,13 @@ let provider;
 let signer;
 let contract;
 
-// Initialize Web3 provider (MetaMask)
-async function initWeb3(game) {
-    // Ensure ethers is defined
-    if (typeof ethers === "undefined") {
-        game.output("Error: ethers.js is not loaded. Please refresh the page or check your internet connection.");
-        return;
-    }
-
-    if (window.ethereum) {
-        try {
-            provider = new ethers.BrowserProvider(window.ethereum);
-            await provider.send("eth_requestAccounts", []);
-
-            // Check the network
-            const network = await provider.getNetwork();
-            if (Number(network.chainId) !== BASE_MAINNET_CHAIN_ID) {
-                game.output(`Error: Please switch MetaMask to Base Mainnet (chain ID ${BASE_MAINNET_CHAIN_ID}). Current network: ${network.name} (chain ID ${network.chainId}).`);
-                return;
-            }
-
-            signer = await provider.getSigner();
-            // Get the connected wallet address
-            const address = await signer.getAddress();
-            // Explicitly resolve the contract address to avoid ENS lookup
-            const resolvedAddress = ethers.getAddress(contractAddress);
-            contract = new ethers.Contract(resolvedAddress, contractABI, signer);
-            game.output("Connected to MetaMask on Base Mainnet.");
-
-            // Update the UI to show the connected address
-            const walletContainer = document.getElementById("walletContainer");
-            walletContainer.innerHTML = `<div id="walletAddress">Connected: ${address.slice(0, 4)}...${address.slice(-4)}</div>`;
-        } catch (error) {
-            game.output(`Error connecting to MetaMask: ${error.message}`);
-            return;
-        }
-    } else {
-        game.output("Please install MetaMask to use blockchain features.");
-    }
-}
-
 
 // Game data for W3bWorld
 const gameData = {
     conditions: { // Define initial conditions here
         atriumDoorUnlocked: false,
-        datacubeInserted: false
+        datacubeInserted: false,
+        soulCubeInserted: false 		
     },
     commands: { // Define bespoke commands here
         type: {
@@ -74,7 +45,7 @@ const gameData = {
                     return;
                 }
                 if (!["unlock", "help", "upload", "sudo unlock"].includes(arg)) {
-                    agt.output("Recognized commands include 'upload', 'unlock', 'lock', 'help'.");
+                    agt.output("Recognized commands include 'upload', 'unlock', 'help'.");
                     return;
                 }
                 if (arg === "help") {
@@ -84,8 +55,9 @@ const gameData = {
                 }
                 if (arg === "upload") {
                     if (agt.conditions.soulCubeInserted) {
-                        agt.output("You type 'upload' into the terminal. Your memories and neural connections are uploaded into the quantum firmament, allowing you to port to an infinite universe of real and simulated existences. To access these you need to mint a Qkey. This is an on-chain operation.");
-                        // Optionally reset soulCubeInserted or trigger a new condition
+                        agt.output("You type 'upload' into the terminal. Your memories and neural connections are uploaded into the quantum firmament, allowing you to port to an infinite universe of real and simulated existences. To access these you need to mint a Nexus key. This is an on-chain operation.");
+                        // Trigger Nexus NFT mint
+                        mintNexus(agt);						
                     } else if (agt.conditions.datacubeInserted) {
                         agt.output("You type 'upload' into the terminal. Nothing happens.");
                     } else {
@@ -298,6 +270,35 @@ const gameData = {
 
 }
 
+
+// Nexus NFT mint function
+async function mintNexus(agt) {
+    if (!provider || !signer) {
+        agt.output("Please connect to MetaMask first using the 'Connect' button.");
+        return;
+    }
+
+    try {
+        const nexusContract = new ethers.Contract(nexusAddress, nexusAbi, signer);
+        const mintPrice = ethers.parseEther("0.0001");
+
+        agt.output("Minting Nexus key... Please confirm the transaction in MetaMask.");
+        const tx = await nexusContract.mint({ value: mintPrice });
+
+        agt.output("Transaction sent. Waiting for confirmation...");
+        const receipt = await tx.wait();
+
+        // Parse the Transfer event log
+        const transferEvent = nexusContract.interface.parseLog(receipt.logs[0]);
+        const tokenId = transferEvent.args.tokenId.toString();
+
+        agt.output(`Nexus key minted successfully! Token ID: ${tokenId}`);
+        return tokenId;
+    } catch (error) {
+        agt.output(`Minting failed: ${error.message}`);
+        return null;
+    }
+}
 
 // Initialize the game with AGT
 const game = new AGT(gameData);

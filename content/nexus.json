@@ -1,0 +1,6 @@
+{
+  "name": "Nexus",
+  "description": "Required to port to W3bWorld Nexus.",
+  "image": "https://www.blockworm.net/content/nexus.jpg",
+  "content": "https://www.blockworm.net/content/nexus.js"
+}
