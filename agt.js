@@ -275,36 +275,61 @@ class AGT {
         this.output("I don't understand. Try help for a list of commands.");
     }
 
-    // Show the player's inventory, including Khoyn balance
+    // Show the player's inventory, including on-chain assets
     async showInventory() {
-        let inventoryDisplay = this.inventory.map(item => item.name); // Extract names
+        let inventoryDisplay = this.inventory.map(item => item.name); // Off-chain items
 
-        // Debug: Log contract and signer
-        console.log("showInventory - this.contract:", this.contract);
-        console.log("showInventory - this.signer:", this.signer);
+        // On-chain assets
+        let onChainDisplay = [];
 
-        // Fetch Khoyn balance if connected to MetaMask
-        let khoynDisplay = "";
+        // Fetch Khoyn balance if connected
         if (this.contract && this.signer) {
             try {
                 const address = await this.signer.getAddress();
                 const balance = await this.contract.balanceOf(address);
                 const formattedBalance = ethers.formatEther(balance);
-                khoynDisplay = `<span class="khoyn-balance">${formattedBalance} khoyn</span>`;
+                onChainDisplay.push(`<span class="khoyn-balance">${formattedBalance} khoyn</span>`);
             } catch (error) {
-                khoynDisplay = `<span class="khoyn-balance">Khoyn: error (${error.message})</span>`;
+                onChainDisplay.push(`<span class="khoyn-balance">Khoyn: error (${error.message})</span>`);
             }
         } else {
-            khoynDisplay = `<span class="khoyn-balance">Khoyn: unavailable (connect to MetaMask)</span>`;
+            onChainDisplay.push(`<span class="khoyn-balance">Khoyn: unavailable (connect to MetaMask)</span>`);
         }
 
-        // Combine Khoyn balance with the rest of the inventory
-        if (inventoryDisplay.length) {
-            this.output(`Inventory<br>On-chain: ${khoynDisplay}${inventoryDisplay.length ? "<br>Off-chain: " + inventoryDisplay.join(", ") : ""}`);
+        // Check whitelisted assets (e.g., Nexus NFT)
+        if (this.signer && this.gameData.whitelistedAssets) {
+            const address = await this.signer.getAddress();
+            for (const asset of this.gameData.whitelistedAssets) {
+                if (asset.type === "ERC721") {
+                    try {
+                        const contract = new ethers.Contract(asset.contractAddress, asset.abi, this.signer);
+                        const balance = await contract.balanceOf(address);
+                        if (balance > 0) {
+                            onChainDisplay.push(`<span class="khoyn-balance">${asset.name}</span>`);
+                        }
+                    } catch (error) {
+                        onChainDisplay.push(`${asset.name}: error (${error.message})`);
+                    }
+                }
+                // Add support for other token types (e.g., ERC20) here if needed
+            }
+        }
+
+        // Combine on-chain and off-chain inventory
+        if (inventoryDisplay.length || onChainDisplay.length) {
+            const output = [];
+            if (onChainDisplay.length) {
+                output.push(`On-chain: ${onChainDisplay.join(", ")}`);
+            }
+            if (inventoryDisplay.length) {
+                output.push(`Off-chain: ${inventoryDisplay.join(", ")}`);
+            }
+            this.output(`Inventory<br>${output.join("<br>")}`);
         } else {
-            this.output(`Inventory<br>On-chain: ${khoynDisplay}`);
+            this.output("Inventory is empty.");
         }
     }
+
 
     // Move to a new room
     move(direction) {

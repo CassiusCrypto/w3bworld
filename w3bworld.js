@@ -1,8 +1,5 @@
 // W3bWorld Game Definition using AGT
 
-// Nexus NFT: 0x3a109F1356c004cb6B066E2C57f444525E5caA67
-// https://basescan.org/address/0x3a109F1356c004cb6B066E2C57f444525E5caA67#writeContract
-
 // Blockchain integration
 const contractAddress = "0xa876eA30592a2576566C490360d2916F2D6ADf87"; // KhoynExchange contract address
 const contractABI = [
@@ -10,12 +7,12 @@ const contractABI = [
     "function balanceOf(address account) external view returns (uint256)"
 ];
 
+const nexusAddress = "0x3a109F1356c004cb6B066E2C57f444525E5caA67"; // Nexus NFT contract address
 const nexusAbi = [
     "function mint() external payable returns (uint256)",
-    "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
+    "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
+    "function balanceOf(address owner) external view returns (uint256)"
 ];
-
-const nexusAddress = "0x3a109F1356c004cb6B066E2C57f444525E5caA67"; // Nexus NFT contract address 
 
 // Base Mainnet chain ID
 const BASE_MAINNET_CHAIN_ID = 8453;
@@ -267,7 +264,16 @@ const gameData = {
             roomArt: "art/terminal.jpg"
         }
     },
-
+    whitelistedAssets: [
+        {
+            name: "Nexus Key",
+            type: "ERC721",
+            contractAddress: nexusAddress,
+            abi: nexusAbi,
+            description: "Access key for the Quantum Nexus."
+        }
+        // Add more assets here if needed (e.g., other NFTs or tokens)
+    ]
 }
 
 
@@ -292,7 +298,7 @@ async function mintNexus(agt) {
         const transferEvent = nexusContract.interface.parseLog(receipt.logs[0]);
         const tokenId = transferEvent.args.tokenId.toString();
 
-        agt.output(`Nexus key minted successfully! Token ID: ${tokenId}`);
+        agt.output(`Nexus key minted successfully! Token ID: ${tokenId}. Use <i>port &lt;location&gt;</i> to access this sector.`);
         return tokenId;
     } catch (error) {
         agt.output(`Minting failed: ${error.message}`);
