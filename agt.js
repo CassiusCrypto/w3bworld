@@ -1,28 +1,30 @@
 // Adventure Game Toolkit (AGT)
 class AGT {
     constructor(gameData) {
-        this.gameData = gameData; // Store gameData for later use
-        this.initialRooms = JSON.parse(JSON.stringify(gameData.rooms)); // Deep copy of rooms
+        this.gameData = gameData;
+        this.initialRooms = JSON.parse(JSON.stringify(gameData.rooms));
         console.log("Initial rooms stored:", this.initialRooms);
-        this.rooms = JSON.parse(JSON.stringify(gameData.rooms)); // Deep copy for working rooms
+        this.rooms = JSON.parse(JSON.stringify(gameData.rooms));
         console.log("Rooms:", this.rooms);
         this.currentRoom = gameData.startRoom || Object.keys(this.rooms)[0];
         console.log("Current room:", this.currentRoom);
         this.inventory = [];
-        this.initialConditions = { ...gameData.conditions }; // Store initial conditions
+        this.initialConditions = { ...gameData.conditions };
         console.log("Initial conditions stored:", this.initialConditions);
         this.conditions = { ...gameData.conditions };
         console.log("this.conditions after init:", this.conditions);
         this.dead = false;
         this.outputElement = document.getElementById("output");
         this.artBoxElement = document.getElementById("artBox");
-        console.log("artBoxElement:", this.artBoxElement); // Debug log
-        this.customCommands = gameData.commands || {}; // Use gameData.commands from w3bworld.js for custom commands
-        this.contract = null; // Initialize as null
-        this.signer = null; // Initialize as null
+        this.mapContainer = document.getElementById("mapContainer"); // Add map container
+        this.commandsContainer = document.getElementById("commandsContainer");
+        console.log("artBoxElement:", this.artBoxElement);
+        this.customCommands = gameData.commands || {};
+        this.contract = null;
+        this.signer = null;
 
         this.handleCommandInput = (event) => {
-            if (event.key === "Enter" && !this.dead) { // Add check for !this.dead
+            if (event.key === "Enter" && !this.dead) {
                 const input = event.target.value.trim();
                 this.output(`> ${input}`);
                 this.parseCommand(input);
@@ -30,29 +32,48 @@ class AGT {
             }
         };
 
-        // Bind input handler
-        document.getElementById("commandInput").addEventListener("keypress", (event) => {
-            if (event.key === "Enter") {
-                const input = event.target.value.trim();
-                this.output(`> ${input}`);
-                this.parseCommand(input);
-                event.target.value = "";
-            }
-        });
+        document.getElementById("commandInput").addEventListener("keypress", this.handleCommandInput);
 
-        // Call displayRoom and catch any errors
+        this.setupCommandButtons(); // Set up the buttons during initialization
         this.displayRoom().catch(error => {
             console.error("Error in initial displayRoom:", error);
         });
     }
 
-    // Method to update contract and signer after connecting to MetaMask
+    setupCommandButtons() {
+        if (!this.commandsContainer) return;
+
+        const buttons = [
+            // First row
+            { label: "Look", command: "look", action: () => this.parseCommand("look") },
+            { label: "Inventory", command: "inventory", action: () => this.parseCommand("inventory") },
+            { label: "Help", command: "help", action: () => this.parseCommand("help") },
+            // Second row
+            { label: "Examine", command: null, action: () => console.log("Examine button clicked (not implemented)") },
+            { label: "Action 1", command: null, action: () => console.log("Action 1 button clicked (not implemented)") },
+            { label: "Action 2", command: null, action: () => console.log("Action 2 button clicked (not implemented)") }
+        ];
+
+
+        buttons.forEach(buttonData => {
+            const button = document.createElement("div");
+            button.className = "commandButton";
+            button.textContent = buttonData.label;
+            button.addEventListener("click", () => {
+                if (!this.dead) {
+                    this.output(`> ${buttonData.command}`);
+                    this.parseCommand(buttonData.command);
+                }
+            });
+            this.commandsContainer.appendChild(button);
+        });
+    }
+
     setBlockchainContext(contract, signer) {
         this.contract = contract;
         this.signer = signer;
     }
 
-    // Output a message to the UI
     output(message) {
         this.outputElement.innerHTML += `<p>${message}</p>`;
         this.outputElement.scrollTop = this.outputElement.scrollHeight;
@@ -64,7 +85,6 @@ class AGT {
             const densityLength = density.length;
 
             const img = new Image();
-            // Remove img.crossOrigin = "Anonymous" for local files
             img.src = imageUrl;
 
             await new Promise((resolve, reject) => {
@@ -76,65 +96,8 @@ class AGT {
             const ctx = canvas.getContext('2d');
 
             const targetWidth = 128;
+            const asciiAspectRatio = 2;
             const aspectRatio = img.height / img.width;
-            const targetHeight = Math.round(targetWidth * aspectRatio);
-
-            canvas.width = targetWidth;
-            canvas.height = targetHeight;
-
-            ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
-
-            const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
-            const pixels = imageData.data;
-
-            let asciiArt = '';
-            for (let y = 0; y < targetHeight; y++) {
-                for (let x = 0; x < targetWidth; x++) {
-                    const index = (y * targetWidth + x) * 4;
-                    const r = pixels[index];
-                    const g = pixels[index + 1];
-                    const b = pixels[index + 2];
-                    const brightness = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-                    const charIndex = Math.floor((brightness / 255) * (densityLength - 1));
-                    asciiArt += density[charIndex];
-                }
-                asciiArt += '\n';
-            }
-
-            const artOutput = `<pre style="font-family: monospace; line-height: 1; color: #00ff00; background: #000;">${asciiArt}</pre>`;
-            this.artBoxElement.innerHTML = artOutput; // Set directly
-            return artOutput; // Return the ASCII art
-        } catch (error) {
-            console.error("Error in imgToAscii:", error);
-            const errorOutput = '<pre style="font-family: monospace; line-height: 1; background: #000;">Error loading ASCII art.</pre>';
-            this.artBoxElement.innerHTML = errorOutput; // Set directly
-            return errorOutput; // Return the error message
-        }
-    }
-
-    // Display ASCII art in the artBox by fetching from a file
-    async imgToAscii(imageUrl) {
-        try {
-            const density = '$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,"^`\'. ';
-            const densityLength = density.length;
-
-            const img = new Image();
-            img.src = imageUrl;
-
-            await new Promise((resolve, reject) => {
-                img.onload = resolve;
-                img.onerror = reject;
-            });
-
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-
-            // Target width in characters
-            const targetWidth = 128;
-            // Adjust for aspect ratio of ASCII characters (approx. 2:1 height:width)
-            const asciiAspectRatio = 2; // Characters are twice as tall as wide
-            const aspectRatio = img.height / img.width;
-            // Calculate target height in characters, accounting for ASCII aspect ratio
             const targetHeight = Math.round((targetWidth * aspectRatio) / asciiAspectRatio);
 
             canvas.width = targetWidth;
@@ -155,7 +118,6 @@ class AGT {
                     const brightness = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
                     const charIndex = Math.floor((brightness / 255) * (densityLength - 1));
                     const char = density[charIndex];
-                    // Apply brightness-based shading (green gradient)
                     const greenValue = Math.round(50 + (brightness / 255) * (255 - 50));
                     const color = `rgb(0, ${greenValue}, 0)`;
                     asciiArt += `<span style="color: ${color}">${char}</span>`;
@@ -174,7 +136,6 @@ class AGT {
         }
     }
 
-    // Display the current room's description and art
     async displayRoom() {
         console.log("Starting displayRoom for room:", this.currentRoom);
         const room = this.rooms[this.currentRoom];
@@ -203,56 +164,130 @@ class AGT {
         }
 
         console.log("imgToAscii completed");
+        this.updateMap(); // Update the map
     }
-	
-    // Parse and handle player commands
+
+    updateMap() {
+        if (!this.mapContainer) return; // Safety check
+
+        const room = this.rooms[this.currentRoom];
+        this.mapContainer.innerHTML = ""; // Clear previous map
+
+        const directions = {
+            north: { gridRow: 1, gridColumn: 2, command: "n" },
+            west: { gridRow: 2, gridColumn: 1, command: "w" },
+            center: { gridRow: 2, gridColumn: 2 },
+            east: { gridRow: 2, gridColumn: 3, command: "e" },
+            south: { gridRow: 3, gridColumn: 2, command: "s" }
+        };
+
+        // Track accessible exits for the current room
+        const accessibleExits = {};
+        if (room.exits) {
+            for (const [direction, exit] of Object.entries(room.exits)) {
+                let isAccessible = true;
+                if (typeof exit === "object") {
+                    if (!this.conditions[exit.condition]) {
+                        isAccessible = false;
+                    }
+                }
+                if (isAccessible) {
+                    accessibleExits[direction] = true;
+                }
+            }
+        }
+
+        // Add current room (center)
+        const centerBox = document.createElement("div");
+        centerBox.className = "roomBox currentRoom";
+        centerBox.textContent = this.currentRoom.toUpperCase();
+        centerBox.style.gridRow = directions.center.gridRow;
+        centerBox.style.gridColumn = directions.center.gridColumn;
+        if (accessibleExits.north) centerBox.style.borderTop = "dashed";
+        if (accessibleExits.south) centerBox.style.borderBottom = "dashed";
+        if (accessibleExits.east) centerBox.style.borderRight = "dashed";
+        if (accessibleExits.west) centerBox.style.borderLeft = "dashed";		
+        this.mapContainer.appendChild(centerBox);
+
+        // Add adjacent rooms based on exits
+        if (room.exits) {
+            for (const [direction, exit] of Object.entries(room.exits)) {
+                const dirConfig = directions[direction];
+                if (dirConfig) {
+                    // Check if the exit is conditional
+                    let nextRoom;
+                    let isAccessible = true;
+                    if (typeof exit === "object") {
+                        if (this.conditions[exit.condition]) {
+                            nextRoom = exit.room;
+                        } else {
+                            isAccessible = false; // Don't display if condition isn't met
+                        }
+                    } else {
+                        nextRoom = exit;
+                    }
+
+                    if (isAccessible) {
+                        const roomBox = document.createElement("div");
+                        roomBox.className = "roomBox";
+                        roomBox.textContent = nextRoom.toUpperCase();
+                        roomBox.style.gridRow = dirConfig.gridRow;
+                        roomBox.style.gridColumn = dirConfig.gridColumn;
+                        if (direction === "north") roomBox.style.borderBottom = "dashed";
+                        if (direction === "south") roomBox.style.borderTop = "dashed";
+                        if (direction === "east") roomBox.style.borderLeft = "dashed";
+                        if (direction === "west") roomBox.style.borderRight = "dashed";
+                        roomBox.addEventListener("click", () => {
+                            this.parseCommand(dirConfig.command);
+                        });
+                        this.mapContainer.appendChild(roomBox);
+                    }
+                }
+            }
+        }
+    }
+
     async parseCommand(input) {
-        // Ignore commands if the player is dead
         if (this.dead) {
             return;
         }
-	
+
         const [command, ...args] = input.toLowerCase().split(" ");
         const argStr = args.join(" ");
 
-        // Check custom commands in case there are special conditions
         if (this.customCommands[command]) {
             const commandDef = this.customCommands[command];
-            // Check if the command has a condition
             if (commandDef.condition && !this.conditions[commandDef.condition]) {
                 this.output(commandDef.message);
                 return;
             }
-            // Execute the custom command
             commandDef.execute(this, argStr);
             return;
-        }		
+        }
 
-        // Movement commands
         if (["north", "south", "east", "west", "n", "s", "e", "w"].includes(command)) {
             this.move(command);
-            return; // Exit early
+            return;
         }
-        // Standard commands
         if (command === "look" || command === "l") {
             await this.displayRoom();
-            return; // Exit early
+            return;
         }
         if (command === "examine" || command === "exam" && argStr) {
             this.examine(argStr);
-            return; // Exit early
+            return;
         }
         if (command === "take" && argStr) {
             this.take(argStr);
-            return; // Exit early
+            return;
         }
         if (command === "use" && argStr) {
             this.use(argStr);
-            return; // Exit early
+            return;
         }
         if (command === "inventory" || command === "i") {
             await this.showInventory();
-            return; // Exit early
+            return;
         }
         if (command === "mint") {
             this.mintKhoyn(argStr);
@@ -261,28 +296,23 @@ class AGT {
         if (command === "balance") {
             this.checkBalance(argStr);
             return;
-        }		
+        }
         if (command === "help" || command === "h") {
             this.output(`Standard commands:<br>north/n, south/s, west/w, east/e - Move to new location<br>look/l - Look around the current location<br>inventory/i - Check your inventory<br>examine/exam <item> - Examine an item in the current location<br>take <item> - Pick up an item<br>use item/object with item/object - use something with something else<br>mint - mint khoyn (on-chain)<br>balance - check khoyn balance<br>help/h - Show this help message<br>about - About W3bWorld`);
-            return;			
-        }			
+            return;
+        }
         if (command === "about") {
             this.output(`<i>Quantum broke us. We knew the risks but the lure of unlimited processing power was too strong. In seeking to unlock the mysteries of the universe, we almost destroyed them, corrupting the source code that underpins our very existence. Now the world is unstable, its tendency towards increasing entropy harsher and more unpredictable. The consequences rippled through the four-dimensional structure of reality. We do not know if we can fix it.<p>You have been placed in a secure enclave: an encrypted fortress of bits that will, for now, withstand the encroaching chaos. Your task is to explore, understand the nature of the damage we have done, address it where you can, and seek instances of pristine code to repair it where you cannot. Good luck.</i><p><b>W3bWorld: Source Code</b> is a blockchain-powered text adventure game. It's built on Base Network with heavy use of AI. W3bWorld is a work-in-progress. No smart contracts have been audited. Please do not commit significant funds to any process. Play is at your own risk.`);
             return;
         }
 
-        // If no command matches, output the error
         this.output("I don't understand. Try help for a list of commands.");
     }
 
-    // Show the player's inventory, including on-chain assets
     async showInventory() {
-        let inventoryDisplay = this.inventory.map(item => item.name); // Off-chain items
-
-        // On-chain assets
+        let inventoryDisplay = this.inventory.map(item => item.name);
         let onChainDisplay = [];
 
-        // Fetch Khoyn balance if connected
         if (this.contract && this.signer) {
             try {
                 const address = await this.signer.getAddress();
@@ -296,7 +326,6 @@ class AGT {
             onChainDisplay.push(`<span class="khoyn-balance">Khoyn: unavailable (connect to MetaMask)</span>`);
         }
 
-        // Check whitelisted assets (e.g., Nexus NFT)
         if (this.signer && this.gameData.whitelistedAssets) {
             const address = await this.signer.getAddress();
             for (const asset of this.gameData.whitelistedAssets) {
@@ -311,11 +340,9 @@ class AGT {
                         onChainDisplay.push(`${asset.name}: error (${error.message})`);
                     }
                 }
-                // Add support for other token types (e.g., ERC20) here if needed
             }
         }
 
-        // Combine on-chain and off-chain inventory
         if (inventoryDisplay.length || onChainDisplay.length) {
             const output = [];
             if (onChainDisplay.length) {
@@ -330,14 +357,11 @@ class AGT {
         }
     }
 
-
-    // Move to a new room
     move(direction) {
         const room = this.rooms[this.currentRoom];
         const dir = direction === "n" ? "north" : direction === "s" ? "south" : direction === "e" ? "east" : direction === "w" ? "west" : direction;
         if (room.exits && room.exits[dir]) {
             let nextRoom;
-            // Check if the exit is a conditional exit (an object)
             if (typeof room.exits[dir] === "object") {
                 const exit = room.exits[dir];
                 if (this.conditions[exit.condition]) {
@@ -347,7 +371,6 @@ class AGT {
                     return;
                 }
             } else {
-                // Simple exit (string)
                 nextRoom = room.exits[dir];
             }
 
@@ -357,14 +380,12 @@ class AGT {
                 return;
             }
 
-            // Move to the new room
             this.currentRoom = nextRoom;
 
-            // Check if the new room is fatal
             const newRoom = this.rooms[this.currentRoom];
             if (newRoom.fatal) {
-                this.displayRoom(); // Display the room description first
-                setTimeout(() => this.die(), 100); // Delay die to ensure displayRoom renders
+                this.displayRoom();
+                setTimeout(() => this.die(), 100);
                 return;
             }
 
@@ -373,14 +394,13 @@ class AGT {
             this.output("You can't go that way.");
         }
     }
-	
+
     examine(target) {
         const room = this.rooms[this.currentRoom];
         let found = false;
 
-        // Check room items first
         if (room.items && room.items[target]) {
-            this.output(room.items[target]); // Description is the string value directly
+            this.output(room.items[target]);
             if (room.itemArt && room.itemArt[target]) {
                 this.imgToAscii(room.itemArt[target]).then(art => {
                     this.artBoxElement.innerHTML = art;
@@ -389,14 +409,13 @@ class AGT {
                     this.artBoxElement.innerHTML = "Error loading item art.";
                 });
             } else {
-                this.artBoxElement.innerHTML = ''; // Clear art box if no art
+                this.artBoxElement.innerHTML = '';
             }
             found = true;
         }
 
-        // Check room objects
         if (room.objects && room.objects[target]) {
-            this.output(room.objects[target]); // Description is the string value directly
+            this.output(room.objects[target]);
             if (room.objectArt && room.objectArt[target]) {
                 this.imgToAscii(room.objectArt[target]).then(art => {
                     this.artBoxElement.innerHTML = art;
@@ -405,16 +424,14 @@ class AGT {
                     this.artBoxElement.innerHTML = "Error loading object art.";
                 });
             } else {
-                this.artBoxElement.innerHTML = ''; // Clear art box if no art
+                this.artBoxElement.innerHTML = '';
             }
             found = true;
         }
 
-        // Check inventory
         const inventoryItem = this.inventory.find(item => item.name === target);
         if (inventoryItem) {
-            this.output(inventoryItem.description); // Use the description from the inventory item
-            // Look up the art from the current room's itemArt, or search all rooms
+            this.output(inventoryItem.description);
             if (room.itemArt && room.itemArt[target]) {
                 this.imgToAscii(room.itemArt[target]).then(art => {
                     this.artBoxElement.innerHTML = art;
@@ -437,20 +454,18 @@ class AGT {
                     }
                 }
                 if (!artFound) {
-                    this.artBoxElement.innerHTML = ''; // Clear art box if no art found
+                    this.artBoxElement.innerHTML = '';
                 }
             }
             found = true;
         }
 
-        // If not found anywhere
         if (!found) {
             this.output("There's nothing like that to examine.");
-            this.artBoxElement.innerHTML = ''; // Clear art box
+            this.artBoxElement.innerHTML = '';
         }
     }
 
-    // Take an item
     take(item) {
         const room = this.rooms[this.currentRoom];
         if (room.items[item]) {
@@ -464,11 +479,10 @@ class AGT {
         }
     }
 
-    // Use an item
     use(itemStr) {
         const [item, preposition, target] = itemStr.split(" ");
         if (preposition !== "with" || !target) {
-            this.output("Use items like this: use &lt;item&gt; with &lt;target&gt;");
+            this.output("Use items like this: use <item> with <target>");
             return;
         }
         const room = this.rooms[this.currentRoom];
@@ -494,7 +508,7 @@ class AGT {
             return;
         }
         try {
-            const ethAmount = ethers.parseEther("0.0001"); // Deposit 0.0001 ETH
+            const ethAmount = ethers.parseEther("0.0001");
             const tx = await this.contract.deposit({ value: ethAmount });
             this.output("Minting Khoyn... Waiting for transaction confirmation.");
             await tx.wait();
@@ -521,13 +535,11 @@ class AGT {
         }
     }
 
-
     die() {
         console.log("Triggering death");
         this.dead = true;
         this.output("You are dead. Press any key.");
         document.getElementById("commandInput").value = "";
-        // Remove the command input listener to prevent interference
         document.getElementById("commandInput").removeEventListener("keypress", this.handleCommandInput);
         const restartListener = (event) => {
             console.log("Restart triggered by keypress");
@@ -545,15 +557,13 @@ class AGT {
         this.currentRoom = this.gameData.startRoom || Object.keys(this.rooms)[0];
         console.log("Current room after reset:", this.currentRoom);
         this.inventory = [];
-        this.rooms = JSON.parse(JSON.stringify(this.initialRooms)); // Reset rooms to initial state
+        this.rooms = JSON.parse(JSON.stringify(this.initialRooms));
         console.log("Rooms after reset:", this.rooms);
-        this.conditions = { ...this.initialConditions }; // Use initialConditions for reset
+        this.conditions = { ...this.initialConditions };
         console.log("Conditions after reset:", this.conditions);
         this.outputElement.innerHTML = "";
-        // document.getElementById("commandInput").addEventListener("keypress", this.handleCommandInput); // Superfluous, causing problems
         this.displayRoom().catch(error => {
             console.error("Error in restart displayRoom:", error);
         });
     }
-
 }

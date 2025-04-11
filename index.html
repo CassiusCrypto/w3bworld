@@ -12,11 +12,10 @@
             margin: 0;
             padding: 10px;
             height: 100vh;
-            overflow: hidden;
-            box-sizing: border-box; /* Ensure box-sizing is applied globally */
+            box-sizing: border-box;
         }
         *, *:before, *:after {
-            box-sizing: inherit; /* Inherit box-sizing for all elements */
+            box-sizing: inherit;
         }
         #topBar {
             display: flex;
@@ -36,22 +35,16 @@
         #gameContainer {
             display: flex;
             gap: 10px;
+            height: 550px; /* Updated to accommodate the new layout */
         }
         #leftPanel {
             display: flex;
-            width: 80%; /* 40% + 40% for output and artBox */
+            width: 80%;
             gap: 10px;
-        }
-        #output {
-            width: 50%; /* 50% of 80% = 40% of total screen width */
-            height: 440px;
-            border: 1px solid #0f0;
-            overflow-y: scroll;
-            padding: 10px;
-            margin-right: 10px;
+            height: 550px; /* 440px (artBox/output) + 10px (gap) + 100px (inventoryBox) */
         }
         #artBox {
-            width: 50%; /* 50% of 80% = 40% of total screen width */
+            width: 50%;
             height: 440px;
             border: 1px solid #0f0;
             background: #000;
@@ -67,23 +60,117 @@
             padding: 10px;
             color: #0f0;
         }
+        #middlePanel {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #output {
+            width: 100%;
+            height: 440px; /* Restored to original height */
+            border: 1px solid #0f0;
+            overflow-y: scroll;
+            padding: 10px;
+        }
+        #inventoryBox {
+            width: 100%;
+            height: 100px; /* New height for inventory box */
+            border: 1px solid #0f0;
+            background: #000;
+            overflow-y: scroll;
+            padding: 10px;
+            color: #0f0;
+            font-family: monospace;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+        #inventoryBox .title {
+            color: #fff;
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+            border-bottom: 1px dashed #0f0;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
         #rightPanel {
-            width: 20%; /* Matches previous verbHud width */
-            height: 440px; /* Matches output and artBox */
+            width: 20%;
+            height: 550px; /* Match the new height of leftPanel */
             display: flex;
             flex-direction: column;
         }
         #verbHud {
-            flex: 1; /* Takes remaining space after commandInput */
+            flex: 1;
             border: 1px solid #0f0;
             background: #000;
             padding: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        #mapContainer {
+            height: 220px;
+            display: grid;
+            grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+            gap: 5px;
+            padding: 5px;
+            align-items: center;
+            justify-items: center;
+        }
+        #commandsContainer {
+            flex: 0 0 auto;
+            display: grid;
+            grid-template: repeat(2, 1fr) / repeat(3, 1fr);
+            gap: 5px;
+            padding: 5px;
+            align-items: center;
+            justify-items: center;
+        }
+        .roomBox {
+            width: 100%;
+            height: 100%;
+            border: 1px solid #0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            cursor: pointer;
+            background: #111;
+            font-size: 12px;
+            padding: 2px;
+        }
+        .roomBox:hover {
+            background: #222;
+        }
+        .currentRoom {
+            background: #333;
+            border: 2px solid #fff;
+        }
+        .commandButton {
+            width: 100%;
+            height: 20px;
+            border: 1px solid #0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            cursor: pointer;
+            background: #111;
+            color: #0f0;
+            font-size: 12px;
+            font-family: monospace;
+            text-transform: uppercase;
+        }
+        .commandButton:hover {
+            background: #222;
         }
         #inputContainer {
             margin-top: 10px;
         }
         #commandInput {
-            width: 100%; /* Full width of rightPanel (20% of total screen width) */
+            width: 100%;
             height: 20px;
             background: #000;
             color: #0f0;
@@ -123,12 +210,23 @@
     </div>
     <div id="gameContainer">
         <div id="leftPanel">
-            <div id="output"></div>
             <div id="artBox"></div>
+            <div id="middlePanel">
+                <div id="output"></div>
+                <div id="inventoryBox">
+                    <div class="title">INVENTORY</div>
+                    <!-- Inventory items will be populated later -->
+                </div>
+            </div>
         </div>
         <div id="rightPanel">
             <div id="verbHud">
-                <!-- Command buttons will go here -->
+                <div id="mapContainer">
+                    <!-- Map will be populated by agt.js -->
+                </div>
+                <div id="commandsContainer">
+                    <!-- Buttons will be populated by agt.js -->
+                </div>
             </div>
             <div id="inputContainer">
                 <input type="text" id="commandInput" placeholder="> Type a command...">
