@@ -35,13 +35,13 @@
         #gameContainer {
             display: flex;
             gap: 10px;
-            height: 550px; /* Updated to accommodate the new layout */
+            height: 550px;
         }
         #leftPanel {
             display: flex;
             width: 80%;
             gap: 10px;
-            height: 550px; /* 440px (artBox/output) + 10px (gap) + 100px (inventoryBox) */
+            height: 550px;
         }
         #artBox {
             width: 50%;
@@ -68,14 +68,14 @@
         }
         #output {
             width: 100%;
-            height: 440px; /* Restored to original height */
+            height: 440px;
             border: 1px solid #0f0;
             overflow-y: scroll;
             padding: 10px;
         }
         #inventoryBox {
             width: 100%;
-            height: 100px; /* New height for inventory box */
+            height: 100px;
             border: 1px solid #0f0;
             background: #000;
             overflow-y: scroll;
@@ -95,9 +95,28 @@
             padding-bottom: 5px;
             margin-bottom: 10px;
         }
+        #inventoryBox .inventoryItem {
+            color: #0f0; /* Off-chain items in green */
+            font-size: 12px;
+            padding: 3px;
+            cursor: pointer;
+        }
+        #inventoryBox .inventoryItem:hover {
+            background: #222;
+        }
+        #inventoryBox .inventoryItem.khoyn-balance {
+            color: #fff; /* On-chain items in white */
+        }
+        #inventoryBox .emptyMessage {
+            color: #0f0;
+            font-size: 12px;
+            font-style: italic;
+            text-align: center;
+            margin-top: 10px;
+        }
         #rightPanel {
             width: 20%;
-            height: 550px; /* Match the new height of leftPanel */
+            height: 550px;
             display: flex;
             flex-direction: column;
         }
@@ -193,7 +212,68 @@
             font-size: 14px;
         }
         .khoyn-balance {
+            color: #fff; /* On-chain items in white */
+        }
+        #roomItemsContainer {
+            width: 100%;
+            height: 120px; /* Reduced height to fit smaller buttons */
+            border: 1px solid #0f0;
+            background: #000;
+            overflow-y: scroll;
+            padding: 10px;
+            color: #0f0;
+            font-family: monospace;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            margin-top: 10px;
+        }
+
+        #roomItemsContainer .title {
             color: #fff;
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+            border-bottom: 1px dashed #0f0;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+
+        #roomItemsList {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); /* Auto-fit columns, min 60px */
+            grid-auto-rows: 18px; /* Smaller row height */
+            gap: 5px;
+            align-items: center;
+            justify-items: center;
+        }
+
+        .roomItemButton {
+            width: 100%;
+            height: 18px; /* Smaller height */
+            border: 1px solid #0ff; /* Cyan border */
+            background: #111;
+            color: #0ff; /* Cyan text */
+            font-family: monospace;
+            font-size: 10px; /* Smaller font */
+            text-align: center;
+            cursor: pointer;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .roomItemButton:hover {
+            background: #222;
+        }
+
+        #roomItemsContainer .emptyMessage {
+            color: #0ff; /* Cyan for consistency */
+            font-size: 12px;
+            font-style: italic;
+            text-align: center;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -215,7 +295,7 @@
                 <div id="output"></div>
                 <div id="inventoryBox">
                     <div class="title">INVENTORY</div>
-                    <!-- Inventory items will be populated later -->
+                    <!-- Inventory items will be populated by agt.js -->
                 </div>
             </div>
         </div>
@@ -226,6 +306,12 @@
                 </div>
                 <div id="commandsContainer">
                     <!-- Buttons will be populated by agt.js -->
+                </div>
+                <div id="roomItemsContainer">
+                    <div class="title">IN THIS ROOM:</div>
+                    <div id="roomItemsList">
+                        <!-- Room items/objects buttons will be populated by agt.js -->
+                    </div>
                 </div>
             </div>
             <div id="inputContainer">

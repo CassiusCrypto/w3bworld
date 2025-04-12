@@ -10,14 +10,16 @@ class AGT {
         console.log("Current room:", this.currentRoom);
         this.inventory = [];
         this.initialConditions = { ...gameData.conditions };
+        this.roomItemsList = document.getElementById("roomItemsList");		
         console.log("Initial conditions stored:", this.initialConditions);
         this.conditions = { ...gameData.conditions };
         console.log("this.conditions after init:", this.conditions);
         this.dead = false;
         this.outputElement = document.getElementById("output");
         this.artBoxElement = document.getElementById("artBox");
-        this.mapContainer = document.getElementById("mapContainer"); // Add map container
+        this.mapContainer = document.getElementById("mapContainer");
         this.commandsContainer = document.getElementById("commandsContainer");
+        this.inventoryBox = document.getElementById("inventoryBox");
         console.log("artBoxElement:", this.artBoxElement);
         this.customCommands = gameData.commands || {};
         this.contract = null;
@@ -34,10 +36,11 @@ class AGT {
 
         document.getElementById("commandInput").addEventListener("keypress", this.handleCommandInput);
 
-        this.setupCommandButtons(); // Set up the buttons during initialization
+        this.setupCommandButtons();
         this.displayRoom().catch(error => {
             console.error("Error in initial displayRoom:", error);
         });
+        this.updateInventoryBox(); // Populate inventory box on game start
     }
 
     setupCommandButtons() {
@@ -49,11 +52,10 @@ class AGT {
             { label: "Inventory", command: "inventory", action: () => this.parseCommand("inventory") },
             { label: "Help", command: "help", action: () => this.parseCommand("help") },
             // Second row
-            { label: "Examine", command: null, action: () => console.log("Examine button clicked (not implemented)") },
+            { label: "Examine", command: "examine", action: () => console.log("Examine button clicked (not implemented)") },
             { label: "Action 1", command: null, action: () => console.log("Action 1 button clicked (not implemented)") },
             { label: "Action 2", command: null, action: () => console.log("Action 2 button clicked (not implemented)") }
         ];
-
 
         buttons.forEach(buttonData => {
             const button = document.createElement("div");
@@ -61,8 +63,10 @@ class AGT {
             button.textContent = buttonData.label;
             button.addEventListener("click", () => {
                 if (!this.dead) {
-                    this.output(`> ${buttonData.command}`);
-                    this.parseCommand(buttonData.command);
+                    if (buttonData.command) {
+                        this.output(`> ${buttonData.command}`);
+                    }
+                    buttonData.action();
                 }
             });
             this.commandsContainer.appendChild(button);
@@ -72,11 +76,69 @@ class AGT {
     setBlockchainContext(contract, signer) {
         this.contract = contract;
         this.signer = signer;
+        this.updateInventoryBox(); // Update inventory box after setting blockchain context
     }
 
     output(message) {
         this.outputElement.innerHTML += `<p>${message}</p>`;
         this.outputElement.scrollTop = this.outputElement.scrollHeight;
+    }
+
+    async updateInventoryBox() {
+        if (!this.inventoryBox) return;
+
+        // Clear existing content (except the title)
+        const title = this.inventoryBox.querySelector(".title");
+        this.inventoryBox.innerHTML = "";
+        this.inventoryBox.appendChild(title);
+
+        let inventoryDisplay = this.inventory.map(item => ({ name: item.name, type: "off-chain" }));
+        let onChainDisplay = [];
+
+        // Fetch on-chain items (excluding khoyn)
+        if (this.signer && this.gameData.whitelistedAssets) {
+            const address = await this.signer.getAddress();
+            for (const asset of this.gameData.whitelistedAssets) {
+                if (asset.type === "ERC721") {
+                    try {
+                        const contract = new ethers.Contract(asset.contractAddress, asset.abi, this.signer);
+                        const balance = await contract.balanceOf(address);
+                        if (balance > 0) {
+                            onChainDisplay.push({ name: asset.name, type: "on-chain" });
+                        }
+                    } catch (error) {
+                        onChainDisplay.push({ name: `${asset.name}: error (${error.message})`, type: "on-chain" });
+                    }
+                }
+            }
+        }
+
+        // Combine on-chain and off-chain items into a single list
+        const allItems = [...onChainDisplay, ...inventoryDisplay];
+
+        // Display inventory items
+        if (allItems.length) {
+            allItems.forEach(item => {
+                const itemDiv = document.createElement("div");
+                itemDiv.className = "inventoryItem";
+                if (item.type === "on-chain") {
+                    itemDiv.classList.add("khoyn-balance"); // White text for on-chain items
+                }
+                itemDiv.textContent = item.name;
+                itemDiv.addEventListener("click", () => {
+                    console.log(`Clicked inventory item: ${item.name}`);
+                });
+                this.inventoryBox.appendChild(itemDiv);
+            });
+        } else {
+            const emptyMessage = document.createElement("div");
+            emptyMessage.className = "emptyMessage";
+            emptyMessage.textContent = "Inventory is empty.";
+            this.inventoryBox.appendChild(emptyMessage);
+        }
+
+        // Scroll to the top of the inventory box
+        this.inventoryBox.scrollTop = 0;
     }
 
     async imgToAscii(imageUrl) {
@@ -164,14 +226,15 @@ class AGT {
         }
 
         console.log("imgToAscii completed");
-        this.updateMap(); // Update the map
+        this.updateMap();
+        this.updateRoomItemsList(); // Add this
     }
 
     updateMap() {
-        if (!this.mapContainer) return; // Safety check
+        if (!this.mapContainer) return;
 
         const room = this.rooms[this.currentRoom];
-        this.mapContainer.innerHTML = ""; // Clear previous map
+        this.mapContainer.innerHTML = "";
 
         const directions = {
             north: { gridRow: 1, gridColumn: 2, command: "n" },
@@ -203,10 +266,11 @@ class AGT {
         centerBox.textContent = this.currentRoom.toUpperCase();
         centerBox.style.gridRow = directions.center.gridRow;
         centerBox.style.gridColumn = directions.center.gridColumn;
-        if (accessibleExits.north) centerBox.style.borderTop = "dashed";
-        if (accessibleExits.south) centerBox.style.borderBottom = "dashed";
-        if (accessibleExits.east) centerBox.style.borderRight = "dashed";
-        if (accessibleExits.west) centerBox.style.borderLeft = "dashed";		
+        // Use dashed border where there are exits
+        if (accessibleExits.north) centerBox.style.borderTopStyle = "dashed";
+        if (accessibleExits.south) centerBox.style.borderBottomStyle = "dashed";
+        if (accessibleExits.east) centerBox.style.borderRightStyle = "dashed";
+        if (accessibleExits.west) centerBox.style.borderLeftStyle = "dashed";
         this.mapContainer.appendChild(centerBox);
 
         // Add adjacent rooms based on exits
@@ -214,14 +278,13 @@ class AGT {
             for (const [direction, exit] of Object.entries(room.exits)) {
                 const dirConfig = directions[direction];
                 if (dirConfig) {
-                    // Check if the exit is conditional
                     let nextRoom;
                     let isAccessible = true;
                     if (typeof exit === "object") {
                         if (this.conditions[exit.condition]) {
                             nextRoom = exit.room;
                         } else {
-                            isAccessible = false; // Don't display if condition isn't met
+                            isAccessible = false;
                         }
                     } else {
                         nextRoom = exit;
@@ -233,10 +296,11 @@ class AGT {
                         roomBox.textContent = nextRoom.toUpperCase();
                         roomBox.style.gridRow = dirConfig.gridRow;
                         roomBox.style.gridColumn = dirConfig.gridColumn;
-                        if (direction === "north") roomBox.style.borderBottom = "dashed";
-                        if (direction === "south") roomBox.style.borderTop = "dashed";
-                        if (direction === "east") roomBox.style.borderLeft = "dashed";
-                        if (direction === "west") roomBox.style.borderRight = "dashed";
+                        // Use dashed border on the side facing the current room
+                        if (direction === "north") roomBox.style.borderBottomStyle = "dashed";
+                        if (direction === "south") roomBox.style.borderTopStyle = "dashed";
+                        if (direction === "east") roomBox.style.borderLeftStyle = "dashed";
+                        if (direction === "west") roomBox.style.borderRightStyle = "dashed";
                         roomBox.addEventListener("click", () => {
                             this.parseCommand(dirConfig.command);
                         });
@@ -244,6 +308,32 @@ class AGT {
                     }
                 }
             }
+        }
+    }
+
+    updateRoomItemsList() {
+        if (!this.roomItemsList) return;
+
+        this.roomItemsList.innerHTML = ''; // Clear existing content
+
+        const room = this.rooms[this.currentRoom];
+        const items = Object.keys(room.items || {});
+        const objects = Object.keys(room.objects || {});
+        const allItems = [...items, ...objects];
+
+        if (allItems.length) {
+            allItems.forEach(item => {
+                const button = document.createElement("div");
+                button.className = "roomItemButton";
+                button.textContent = item.toUpperCase();
+                // No click handler yet, as per request
+                this.roomItemsList.appendChild(button);
+            });
+        } else {
+            const emptyMessage = document.createElement("div");
+            emptyMessage.className = "emptyMessage";
+            emptyMessage.textContent = "No items or objects here.";
+            this.roomItemsList.appendChild(emptyMessage);
         }
     }
 
@@ -472,6 +562,8 @@ class AGT {
             this.inventory.push({ name: item, description: room.items[item] });
             delete room.items[item];
             this.output(`You take the ${item}.`);
+            this.updateInventoryBox(); // Update inventory box after taking an item
+            this.updateRoomItemsList(); // Refresh room items panel
         } else if (room.objects && room.objects[item]) {
             this.output(`You can't take the ${item}.`);
         } else {
@@ -494,6 +586,7 @@ class AGT {
             if (room.useActions && room.useActions[item] && room.useActions[item][target]) {
                 const action = room.useActions[item][target];
                 action(this);
+                this.updateInventoryBox(); // Update inventory box after using an item
             } else {
                 this.output(`You can't use the ${item} with the ${target}.`);
             }
@@ -513,6 +606,7 @@ class AGT {
             this.output("Minting Khoyn... Waiting for transaction confirmation.");
             await tx.wait();
             this.output("Successfully minted Khoyn!");
+            this.updateInventoryBox(); // Update inventory box after minting khoyn
         } catch (error) {
             this.output(`Error minting Khoyn: ${error.message}`);
             if (error.code === "INSUFFICIENT_FUNDS") {
@@ -530,6 +624,7 @@ class AGT {
             const address = await this.signer.getAddress();
             const balance = await this.contract.balanceOf(address);
             this.output(`Your khoyn balance: ${ethers.formatEther(balance)} khoyn`);
+            this.updateInventoryBox(); // Update inventory box after checking balance
         } catch (error) {
             this.output(`Error checking balance: ${error.message}`);
         }
@@ -555,15 +650,15 @@ class AGT {
         console.log("Initial conditions from initialConditions:", this.initialConditions);
         this.dead = false;
         this.currentRoom = this.gameData.startRoom || Object.keys(this.rooms)[0];
-        console.log("Current room after reset:", this.currentRoom);
-        this.inventory = [];
         this.rooms = JSON.parse(JSON.stringify(this.initialRooms));
-        console.log("Rooms after reset:", this.rooms);
+        this.inventory = [];
         this.conditions = { ...this.initialConditions };
         console.log("Conditions after reset:", this.conditions);
         this.outputElement.innerHTML = "";
-        this.displayRoom().catch(error => {
-            console.error("Error in restart displayRoom:", error);
-        });
+        this.artBoxElement.innerHTML = "";
+        document.getElementById("commandInput").addEventListener("keypress", this.handleCommandInput);
+        this.displayRoom();
+        this.updateInventoryBox(); // Update inventory box after restarting
+        this.updateRoomItemsList(); 
     }
 }

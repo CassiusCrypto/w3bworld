@@ -156,6 +156,9 @@ const gameData = {
                     room.itemArt = room.itemArt || {};
                     room.itemArt["datacube"] = "art/cube.jpg";	// Needs to go back in the room to be examinable											
                 }
+            // Update the inventory UI
+            agt.updateInventoryBox();			
+            agt.updateRoomItemsList(); // Add this to refresh room items
             }
         },
 
