@@ -12,6 +12,8 @@ class AGT {
         this.initialConditions = { ...gameData.conditions };
         this.isExamineMode = false; // Track if examine mode is active
         this.examineButton = null; // Reference to examine button for styling
+        this.isTakeMode = false; // Track take mode
+        this.takeButton = null; // Reference to take button		
         this.roomItemsList = document.getElementById("roomItemsList");		
         console.log("Initial conditions stored:", this.initialConditions);
         this.conditions = { ...gameData.conditions };
@@ -35,6 +37,10 @@ class AGT {
                     this.exitExamineMode();
                     this.output("Examine cancelled.");
                 }				
+                if (this.isTakeMode) {
+                    this.exitTakeMode(); // Exit take mode
+                    this.output("Take cancelled.");
+                }
                 this.output(`> ${input}`);
                 this.parseCommand(input);
                 event.target.value = "";
@@ -60,7 +66,7 @@ class AGT {
             { label: "Help", command: "help", action: () => this.parseCommand("help") },
             // Second row
             { label: "Examine", command: "examine", action: () => this.enterExamineMode() },
-            { label: "Action 1", command: null, action: () => console.log("Action 1 button clicked (not implemented)") },
+            { label: "Take", command: "take", action: () => this.enterTakeMode() },
             { label: "Action 2", command: null, action: () => console.log("Action 2 button clicked (not implemented)") }
         ];
 
@@ -72,13 +78,20 @@ class AGT {
             if (buttonData.label === "Examine") {
                 this.examineButton = button; // Store reference
             }
+            if (buttonData.label === "Take") {
+                this.takeButton = button; // Store reference
+            }			
             button.addEventListener("click", () => {
                 if (!this.dead) {
                     if (this.isExamineMode && buttonData.label !== "Examine") {
                         this.exitExamineMode();
                         this.output("Examine cancelled.");
                     }
-                    if (buttonData.command && buttonData.label !== "Examine") {
+                    if (this.isTakeMode && buttonData.label !== "Take") {
+                        this.exitTakeMode();
+                        this.output("Take cancelled.");
+                    }
+                    if (buttonData.command && buttonData.label !== "Examine" && buttonData.label !== "Take") {
                         this.output(`> ${buttonData.command}`);
                     }
                     buttonData.action();
@@ -347,6 +360,10 @@ class AGT {
                         this.output(`> examine ${item}`);
                         this.examine(item);
                         this.exitExamineMode();
+                    } else if (this.isTakeMode && !this.dead && items.includes(item)) {
+                        this.output(`> take ${item}`);
+                        this.parseCommand(`take ${item}`); // Use parseCommand to respect w3bworld.js override
+                        this.exitTakeMode();
                     }
                 });
                 this.roomItemsList.appendChild(button);
@@ -614,6 +631,22 @@ class AGT {
         }
     }
 
+    enterTakeMode() {
+        if (this.dead) return;
+        this.isTakeMode = true;
+        this.output("> take");
+        if (this.takeButton) {
+            this.takeButton.classList.add("active");
+        }
+    }
+
+    exitTakeMode() {
+        this.isTakeMode = false;
+        if (this.takeButton) {
+            this.takeButton.classList.remove("active");
+        }
+    }
+
     use(itemStr) {
         const [item, preposition, target] = itemStr.split(" ");
         if (preposition !== "with" || !target) {
@@ -700,6 +733,7 @@ class AGT {
         this.outputElement.innerHTML = "";
         this.artBoxElement.innerHTML = "";
         this.exitExamineMode(); // Reset examine mode		
+        this.exitTakeMode();		
         document.getElementById("commandInput").addEventListener("keypress", this.handleCommandInput);
         document.getElementById("commandInput").addEventListener("keypress", this.handleCommandInput);
         this.displayRoom();
