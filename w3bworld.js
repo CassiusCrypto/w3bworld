@@ -158,7 +158,7 @@ const gameData = {
                 }
             // Update the inventory UI
             agt.updateInventoryBox();			
-            agt.updateRoomItemsList(); // Add this to refresh room items
+            agt.updateRoomItemsList();
             }
         },
 
@@ -220,6 +220,8 @@ const gameData = {
                     room.itemArt["soulcube"] = "art/soulcube.jpg";					
                     delete room.items["datacube"]; // Remove datacube and set inserted condition to false
                     agt.conditions.dataScannerInserted = false;					
+                    agt.updateInventoryBox();					
+                    agt.updateRoomItemsList(); // Add this to refresh room items					
                 } else {
                     agt.output("You press the button, but nothing happens.");
                 }
