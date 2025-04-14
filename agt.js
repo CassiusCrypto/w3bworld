@@ -60,43 +60,60 @@ class AGT {
         if (!this.commandsContainer) return;
 
         const buttons = [
-            // First row
+            // Row 1
             { label: "Look", command: "look", action: () => this.parseCommand("look") },
-            { label: "Inventory", command: "inventory", action: () => this.parseCommand("inventory") },
-            { label: "Help", command: "help", action: () => this.parseCommand("help") },
-            // Second row
             { label: "Examine", command: "examine", action: () => this.enterExamineMode() },
+            { label: "Search", command: null, action: () => console.log("Search button clicked (not implemented)") },
+            // Row 2
+            { label: "Inventory", command: "inventory", action: () => this.parseCommand("inventory") },
             { label: "Take", command: "take", action: () => this.enterTakeMode() },
-            { label: "Action 2", command: null, action: () => console.log("Action 2 button clicked (not implemented)") }
+            { label: "Use (With)", command: null, action: () => console.log("Use (With) button clicked (not implemented)") },
+            // Row 3
+            { label: "Press", command: null, action: () => console.log("Press button clicked (not implemented)") },
+            { label: "Type", command: null, action: () => console.log("Type button clicked (not implemented)") },
+            { label: "Fight", command: null, action: () => console.log("Fight button clicked (not implemented)") },
+            // Row 4
+            { label: "Talk To", command: null, action: () => console.log("Talk To button clicked (not implemented)") },
+            { label: "Help", command: "help", action: () => this.parseCommand("help") },
+            { label: "About", command: null, action: () => console.log("About button clicked (not implemented)") },
+            // Row 5: Port (centered)
+            { label: "", command: null, action: () => {}, placeholder: true }, // Empty cell
+            { label: "Port", command: null, action: () => console.log("Port button clicked (not implemented)"), isPort: true },
+            { label: "", command: null, action: () => {}, placeholder: true } // Empty cell
         ];
 
-        this.commandsContainer.innerHTML = ''; // Clear existing buttons
+        this.commandsContainer.innerHTML = '';
         buttons.forEach(buttonData => {
             const button = document.createElement("div");
-            button.className = "commandButton";
-            button.textContent = buttonData.label;
-            if (buttonData.label === "Examine") {
-                this.examineButton = button; // Store reference
-            }
-            if (buttonData.label === "Take") {
-                this.takeButton = button; // Store reference
-            }			
-            button.addEventListener("click", () => {
-                if (!this.dead) {
-                    if (this.isExamineMode && buttonData.label !== "Examine") {
-                        this.exitExamineMode();
-                        this.output("Examine cancelled.");
-                    }
-                    if (this.isTakeMode && buttonData.label !== "Take") {
-                        this.exitTakeMode();
-                        this.output("Take cancelled.");
-                    }
-                    if (buttonData.command && buttonData.label !== "Examine" && buttonData.label !== "Take") {
-                        this.output(`> ${buttonData.command}`);
-                    }
-                    buttonData.action();
+            if (buttonData.placeholder) {
+                button.className = "placeholderButton"; // Add a class for empty cells
+                button.style.visibility = "hidden"; // Hide but maintain grid space
+            } else {
+                button.className = buttonData.isPort ? "portButton" : "commandButton";
+                button.textContent = buttonData.label;
+                if (buttonData.label === "Examine") {
+                    this.examineButton = button;
                 }
-            });
+                if (buttonData.label === "Take") {
+                    this.takeButton = button;
+                }
+                button.addEventListener("click", () => {
+                    if (!this.dead) {
+                        if (this.isExamineMode && buttonData.label !== "Examine") {
+                            this.exitExamineMode();
+                            this.output("Examine cancelled.");
+                        }
+                        if (this.isTakeMode && buttonData.label !== "Take") {
+                            this.exitTakeMode();
+                            this.output("Take cancelled.");
+                        }
+                        if (buttonData.command && buttonData.label !== "Examine" && buttonData.label !== "Take") {
+                            this.output(`> ${buttonData.command}`);
+                        }
+                        buttonData.action();
+                    }
+                });
+            }
             this.commandsContainer.appendChild(button);
         });
     }
@@ -452,7 +469,7 @@ class AGT {
                 onChainDisplay.push(`<span class="khoyn-balance">Khoyn: error (${error.message})</span>`);
             }
         } else {
-            onChainDisplay.push(`<span class="khoyn-balance">Khoyn: unavailable (connect to MetaMask)</span>`);
+            onChainDisplay.push(`<span class="khoyn-balance">Unavailable (connect to MetaMask)</span>`);
         }
 
         if (this.signer && this.gameData.whitelistedAssets) {
