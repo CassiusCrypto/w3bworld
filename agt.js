@@ -10,6 +10,8 @@ class AGT {
         console.log("Current room:", this.currentRoom);
         this.inventory = [];
         this.initialConditions = { ...gameData.conditions };
+        this.isExamineMode = false; // Track if examine mode is active
+        this.examineButton = null; // Reference to examine button for styling
         this.roomItemsList = document.getElementById("roomItemsList");		
         console.log("Initial conditions stored:", this.initialConditions);
         this.conditions = { ...gameData.conditions };
@@ -28,6 +30,11 @@ class AGT {
         this.handleCommandInput = (event) => {
             if (event.key === "Enter" && !this.dead) {
                 const input = event.target.value.trim();
+                if (this.isExamineMode) {
+                    // Exit examine mode on any text input
+                    this.exitExamineMode();
+                    this.output("Examine cancelled.");
+                }				
                 this.output(`> ${input}`);
                 this.parseCommand(input);
                 event.target.value = "";
@@ -52,18 +59,26 @@ class AGT {
             { label: "Inventory", command: "inventory", action: () => this.parseCommand("inventory") },
             { label: "Help", command: "help", action: () => this.parseCommand("help") },
             // Second row
-            { label: "Examine", command: "examine", action: () => console.log("Examine button clicked (not implemented)") },
+            { label: "Examine", command: "examine", action: () => this.enterExamineMode() },
             { label: "Action 1", command: null, action: () => console.log("Action 1 button clicked (not implemented)") },
             { label: "Action 2", command: null, action: () => console.log("Action 2 button clicked (not implemented)") }
         ];
 
+        this.commandsContainer.innerHTML = ''; // Clear existing buttons
         buttons.forEach(buttonData => {
             const button = document.createElement("div");
             button.className = "commandButton";
             button.textContent = buttonData.label;
+            if (buttonData.label === "Examine") {
+                this.examineButton = button; // Store reference
+            }
             button.addEventListener("click", () => {
                 if (!this.dead) {
-                    if (buttonData.command) {
+                    if (this.isExamineMode && buttonData.label !== "Examine") {
+                        this.exitExamineMode();
+                        this.output("Examine cancelled.");
+                    }
+                    if (buttonData.command && buttonData.label !== "Examine") {
                         this.output(`> ${buttonData.command}`);
                     }
                     buttonData.action();
@@ -87,7 +102,6 @@ class AGT {
     async updateInventoryBox() {
         if (!this.inventoryBox) return;
 
-        // Clear existing content (except the title)
         const title = this.inventoryBox.querySelector(".title");
         this.inventoryBox.innerHTML = "";
         this.inventoryBox.appendChild(title);
@@ -95,7 +109,6 @@ class AGT {
         let inventoryDisplay = this.inventory.map(item => ({ name: item.name, type: "off-chain" }));
         let onChainDisplay = [];
 
-        // Fetch on-chain items (excluding khoyn)
         if (this.signer && this.gameData.whitelistedAssets) {
             const address = await this.signer.getAddress();
             for (const asset of this.gameData.whitelistedAssets) {
@@ -113,20 +126,24 @@ class AGT {
             }
         }
 
-        // Combine on-chain and off-chain items into a single list
         const allItems = [...onChainDisplay, ...inventoryDisplay];
 
-        // Display inventory items
         if (allItems.length) {
             allItems.forEach(item => {
                 const itemDiv = document.createElement("div");
                 itemDiv.className = "inventoryItem";
                 if (item.type === "on-chain") {
-                    itemDiv.classList.add("khoyn-balance"); // White text for on-chain items
+                    itemDiv.classList.add("khoyn-balance");
                 }
                 itemDiv.textContent = item.name;
                 itemDiv.addEventListener("click", () => {
-                    console.log(`Clicked inventory item: ${item.name}`);
+                    if (this.isExamineMode && !this.dead) {
+                        this.output(`> examine ${item.name}`);
+                        this.examine(item.name);
+                        this.exitExamineMode();
+                    } else {
+                        console.log(`Clicked inventory item: ${item.name}`);
+                    }
                 });
                 this.inventoryBox.appendChild(itemDiv);
             });
@@ -137,7 +154,6 @@ class AGT {
             this.inventoryBox.appendChild(emptyMessage);
         }
 
-        // Scroll to the top of the inventory box
         this.inventoryBox.scrollTop = 0;
     }
 
@@ -314,7 +330,7 @@ class AGT {
     updateRoomItemsList() {
         if (!this.roomItemsList) return;
 
-        this.roomItemsList.innerHTML = ''; // Clear existing content
+        this.roomItemsList.innerHTML = '';
 
         const room = this.rooms[this.currentRoom];
         const items = Object.keys(room.items || {});
@@ -326,7 +342,13 @@ class AGT {
                 const button = document.createElement("div");
                 button.className = "roomItemButton";
                 button.textContent = item.toUpperCase();
-                // No click handler yet, as per request
+                button.addEventListener("click", () => {
+                    if (this.isExamineMode && !this.dead) {
+                        this.output(`> examine ${item}`);
+                        this.examine(item);
+                        this.exitExamineMode();
+                    }
+                });
                 this.roomItemsList.appendChild(button);
             });
         } else {
@@ -489,6 +511,7 @@ class AGT {
         const room = this.rooms[this.currentRoom];
         let found = false;
 
+        // Check room items
         if (room.items && room.items[target]) {
             this.output(room.items[target]);
             if (room.itemArt && room.itemArt[target]) {
@@ -504,6 +527,7 @@ class AGT {
             found = true;
         }
 
+        // Check room objects
         if (room.objects && room.objects[target]) {
             this.output(room.objects[target]);
             if (room.objectArt && room.objectArt[target]) {
@@ -519,40 +543,59 @@ class AGT {
             found = true;
         }
 
+        // Check inventory items (off-chain)
         const inventoryItem = this.inventory.find(item => item.name === target);
         if (inventoryItem) {
             this.output(inventoryItem.description);
-            if (room.itemArt && room.itemArt[target]) {
-                this.imgToAscii(room.itemArt[target]).then(art => {
-                    this.artBoxElement.innerHTML = art;
-                }).catch(error => {
-                    console.error("Error displaying inventory item art:", error);
-                    this.artBoxElement.innerHTML = "Error loading item art.";
-                });
-            } else {
-                let artFound = false;
-                for (const roomKey in this.rooms) {
-                    if (this.rooms[roomKey].itemArt && this.rooms[roomKey].itemArt[target]) {
-                        this.imgToAscii(this.rooms[roomKey].itemArt[target]).then(art => {
-                            this.artBoxElement.innerHTML = art;
-                        }).catch(error => {
-                            console.error("Error displaying inventory item art:", error);
-                            this.artBoxElement.innerHTML = "Error loading item art.";
-                        });
-                        artFound = true;
-                        break;
-                    }
+            let artFound = false;
+            for (const roomKey in this.rooms) {
+                if (this.rooms[roomKey].itemArt && this.rooms[roomKey].itemArt[target]) {
+                    this.imgToAscii(this.rooms[roomKey].itemArt[target]).then(art => {
+                        this.artBoxElement.innerHTML = art;
+                    }).catch(error => {
+                        console.error("Error displaying inventory item art:", error);
+                        this.artBoxElement.innerHTML = "Error loading item art.";
+                    });
+                    artFound = true;
+                    break;
                 }
-                if (!artFound) {
-                    this.artBoxElement.innerHTML = '';
-                }
+            }
+            if (!artFound) {
+                this.artBoxElement.innerHTML = '';
             }
             found = true;
         }
 
+        // Check on-chain items (e.g., Nexus Key)
+        if (this.gameData.whitelistedAssets) {
+            const asset = this.gameData.whitelistedAssets.find(asset => asset.name.toLowerCase() === target.toLowerCase());
+            if (asset) {
+                this.output(asset.description || `${asset.name}: No description available.`);
+                this.artBoxElement.innerHTML = ''; // No art for on-chain items unless specified
+                found = true;
+            }
+        }
+
+        // If nothing was found
         if (!found) {
             this.output("There's nothing like that to examine.");
             this.artBoxElement.innerHTML = '';
+        }
+    }
+
+    enterExamineMode() {
+        if (this.dead) return;
+        this.isExamineMode = true;
+        this.output("> examine");
+        if (this.examineButton) {
+            this.examineButton.classList.add("active");
+        }
+    }
+
+    exitExamineMode() {
+        this.isExamineMode = false;
+        if (this.examineButton) {
+            this.examineButton.classList.remove("active");
         }
     }
 
@@ -656,6 +699,8 @@ class AGT {
         console.log("Conditions after reset:", this.conditions);
         this.outputElement.innerHTML = "";
         this.artBoxElement.innerHTML = "";
+        this.exitExamineMode(); // Reset examine mode		
+        document.getElementById("commandInput").addEventListener("keypress", this.handleCommandInput);
         document.getElementById("commandInput").addEventListener("keypress", this.handleCommandInput);
         this.displayRoom();
         this.updateInventoryBox(); // Update inventory box after restarting
