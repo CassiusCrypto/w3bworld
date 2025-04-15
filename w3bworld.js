@@ -21,13 +21,33 @@ let provider;
 let signer;
 let contract;
 
+// Shared function for use actions
+function useItemWithDevice(agt, item, target, condition, itemDescription, itemArt, successMessage) {
+    if (agt.conditions[condition]) {
+        agt.output(`A ${item} was already used with the ${target}.`);
+        return;
+    }
+    if (!agt.inventory.some(i => i.name.toLowerCase() === item.toLowerCase())) {
+        agt.output(`You don't have a ${item}.`);
+        return;
+    }
+    agt.inventory = agt.inventory.filter(i => i.name.toLowerCase() !== item.toLowerCase());
+    agt.rooms[agt.currentRoom].items[item] = itemDescription;
+    agt.rooms[agt.currentRoom].itemArt = agt.rooms[agt.currentRoom].itemArt || {};
+    agt.rooms[agt.currentRoom].itemArt[item] = itemArt;
+    agt.conditions[condition] = true;
+    agt.output(successMessage || `You use the ${item} with the ${target}.`);
+    agt.updateInventoryBox();
+    agt.updateRoomItemsList();
+}
 
 // Game data for W3bWorld
 const gameData = {
     conditions: { // Define initial conditions here
         atriumDoorUnlocked: false,
         datacubeInserted: false,
-        soulCubeInserted: false 		
+        soulCubeInserted: false,
+        dataScannerInserted: false 		
     },
     commands: { // Define bespoke commands here
         type: {
@@ -75,90 +95,6 @@ const gameData = {
                     }
                     return;
 				}
-            }
-        },
-        insert: {
-            execute: (agt, arg) => {
-                // Check if the player is in a room where inserting is allowed
-                if (!["terminal", "scanner"].includes(agt.currentRoom)) {
-                    agt.output("There is nowhere to place that here.");
-                    return;
-                }
-
-                const room = agt.rooms[agt.currentRoom];
-                // Check for the appropriate object based on the room and item
-                if (agt.currentRoom === "terminal") {
-                    if (!room.objects || !room.objects["drive"]) {
-                        agt.output("There is no drive here to insert that into.");
-                        return;
-                    }
-                } else if (agt.currentRoom === "scanner") {
-                    if (!room.objects || !room.objects["scanner"]) {
-                        agt.output("There is nowhere here to insert that.");
-                        return;
-                    }
-                }
-
-                // Check if the argument is valid ("datacube" or "soulcube")
-                if (!["datacube", "soulcube"].includes(arg)) {
-                    agt.output("You cannot insert that.");
-                    return;
-                }
-
-                // For soulcube, ensure we're in the terminal room
-                if (arg === "soulcube" && agt.currentRoom !== "terminal") {
-                    agt.output("You cannot insert the soulcube into that.");
-                    return;
-                }
-
-                // Check if the player has the item in their inventory
-                if (!agt.inventory.some(i => i.name === arg)) {
-                    agt.output(`You don't have a ${arg}.`);
-                    return;
-                }
-
-                // Check if an item is already inserted in the current room's device
-                if (agt.currentRoom === "terminal") {
-                    if (arg === "datacube" && agt.conditions.datacubeInserted) {
-                        agt.output("A datacube is already in the drive.");
-                        return;
-                    }
-                    if (arg === "soulcube" && agt.conditions.soulCubeInserted) {
-                        agt.output("A soulcube is already in the drive.");
-                        return;
-                    }
-                }
-                if (agt.currentRoom === "scanner" && agt.conditions.dataScannerInserted) {
-                    agt.output("A datacube is already in the scanner.");
-                    return;
-                }
-
-                // Remove the item from inventory
-                agt.inventory = agt.inventory.filter(i => i.name !== arg);
-
-                // Set the appropriate condition and output message based on the room and item
-                if (agt.currentRoom === "terminal") {
-                    if (arg === "datacube") {
-                        agt.conditions.datacubeInserted = true;					
-                        agt.output("You insert the datacube into the drive."); 
-                        room.items["datacube"] = "The datacube can hold thousands of petabytes of data at the subatomic level. This one is a dull grey color, indicating it is empty.";
-                    } else if (arg === "soulcube") {
-                        agt.conditions.soulCubeInserted = true;
-                        room.itemArt = room.itemArt || {};
-                        room.itemArt["soulcube"] = "art/soulcube.jpg";	// Needs to go back in the room to be examinable						
-                        agt.output("You insert the soulcube into the drive.");
-                        room.items["soulcube"] = "Swirling shapes move across the surface of the glowing soulcube, which holds information representing every memory and neural connection in your brain.";
-                    }
-                } else if (agt.currentRoom === "scanner") {
-                    agt.conditions.dataScannerInserted = true;
-                    agt.output("You insert the datacube into the scanner.");
-                    room.items["datacube"] = "The datacube can hold thousands of petabytes of data at the subatomic level. This one is a dull grey color, indicating it is empty.";
-                    room.itemArt = room.itemArt || {};
-                    room.itemArt["datacube"] = "art/cube.jpg";	// Needs to go back in the room to be examinable											
-                }
-            // Update the inventory UI
-            agt.updateInventoryBox();			
-            agt.updateRoomItemsList();
             }
         },
 
@@ -229,14 +165,32 @@ const gameData = {
         }			
     },		
     startRoom: "atrium",
+
     rooms: {
         scanner: {
             description: "You are in a medical scanning booth. There is a console with a screen in front of you.",
             exits: { north: "atrium" },
-            objects: { console: "The console has a 2cm square recess. Below the console is a button.", button: "The button is green and round.", scanner: "Hi-resolution medical scanning equipment is built into the walls of the booth." },
+            objects: { 
+                console: "The console has a 2cm square recess. Below the console is a button.", 
+                button: "The button is green and round.", 
+                scanner: "Hi-resolution medical scanning equipment is built into the walls of the booth." 
+            },
             items: {},
             itemArt: {},			
-            roomArt: "art/scan.jpg"			
+            roomArt: "art/scan.jpg",
+            useActions: {
+                datacube: {
+                    console: (agt) => useItemWithDevice(
+                        agt,
+                        "datacube",
+                        "console",
+                        "dataScannerInserted",
+                        "The datacube can hold thousands of petabytes of data at the subatomic level. This one is a dull grey color, indicating it is empty.",
+                        "art/cube.jpg",
+                        "The datacube slides into the scanner console with a smooth click."
+                    )
+                }
+            }			
         },
         atrium: {
             description: "You are standing in a white room. A heavy metal door lies to the east. A broad window faces out onto a decaying city.",
@@ -266,7 +220,31 @@ const gameData = {
             items: { datacube: "The datacube can hold thousands of petabytes of data at the subatomic level. This one is a matt black color, indicating it is empty." },
             objects: { terminal: "The terminal is a Quantech 4 model with an Optical Drive for ultra-high-volume data transfer.", drive: "The Drive has a square recess, 2cm on each side, designed to accept a standard datacube."},
             itemArt: { datacube: "art/cube.jpg" },
-            roomArt: "art/terminal.jpg"
+            roomArt: "art/terminal.jpg",
+            useActions: {
+                datacube: {
+                    drive: (agt) => useItemWithDevice(
+                        agt,
+                        "datacube",
+                        "drive",
+                        "datacubeInserted",
+                        "The datacube can hold thousands of petabytes of data at the subatomic level. This one is a dull grey color, indicating it is empty.",
+                        "art/cube.jpg",
+                        "The datacube slides into the terminal drive with a smooth click."
+                    )
+                },
+                soulcube: {
+                    drive: (agt) => useItemWithDevice(
+                        agt,
+                        "soulcube",
+                        "drive",
+                        "soulCubeInserted",
+                        "Swirling shapes move across the surface of the glowing soulcube, which holds information representing every memory and neural connection in your brain.",
+                        "art/soulcube.jpg",
+                        "The swirling shapes on the soulcube shift and glow brighter as you slide the memory device into the terminal drive."
+                    )
+                }
+            }
         }
     },
     whitelistedAssets: [

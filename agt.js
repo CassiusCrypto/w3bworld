@@ -2,19 +2,39 @@
 class AGT {
     constructor(gameData) {
         this.gameData = gameData;
-        this.initialRooms = JSON.parse(JSON.stringify(gameData.rooms));
+        
+        // Helper function to deep copy objects while preserving functions
+        function deepCopyWithFunctions(obj) {
+            if (obj === null || typeof obj !== 'object') {
+                return obj;
+            }
+            if (Array.isArray(obj)) {
+                return obj.map(deepCopyWithFunctions);
+            }
+            const copy = {};
+            for (const key in obj) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                    copy[key] = deepCopyWithFunctions(obj[key]);
+                }
+            }
+            return copy;
+        }
+        
+        // Clone rooms and initialRooms with functions preserved
+        this.initialRooms = deepCopyWithFunctions(gameData.rooms);
+        this.rooms = deepCopyWithFunctions(gameData.rooms);
+        
         console.log("Initial rooms stored:", this.initialRooms);
-        this.rooms = JSON.parse(JSON.stringify(gameData.rooms));
         console.log("Rooms:", this.rooms);
         this.currentRoom = gameData.startRoom || Object.keys(this.rooms)[0];
         console.log("Current room:", this.currentRoom);
         this.inventory = [];
         this.initialConditions = { ...gameData.conditions };
-        this.isExamineMode = false; // Track if examine mode is active
-        this.examineButton = null; // Reference to examine button for styling
-        this.isTakeMode = false; // Track take mode
-        this.takeButton = null; // Reference to take button		
-        this.roomItemsList = document.getElementById("roomItemsList");		
+        this.isExamineMode = false;
+        this.examineButton = null;
+        this.isTakeMode = false;
+        this.takeButton = null;
+        this.roomItemsList = document.getElementById("roomItemsList");
         console.log("Initial conditions stored:", this.initialConditions);
         this.conditions = { ...gameData.conditions };
         console.log("this.conditions after init:", this.conditions);
@@ -33,11 +53,10 @@ class AGT {
             if (event.key === "Enter" && !this.dead) {
                 const input = event.target.value.trim();
                 if (this.isExamineMode) {
-                    // Exit examine mode on any text input
                     this.exitExamineMode();
-                }				
+                }
                 if (this.isTakeMode) {
-                    this.exitTakeMode(); // Exit take mode
+                    this.exitTakeMode();
                 }
                 this.output(`> ${input}`);
                 this.parseCommand(input);
@@ -51,7 +70,7 @@ class AGT {
         this.displayRoom().catch(error => {
             console.error("Error in initial displayRoom:", error);
         });
-        this.updateInventoryBox(); // Populate inventory box on game start
+        this.updateInventoryBox();
     }
 
     setupCommandButtons() {
@@ -651,26 +670,30 @@ class AGT {
     }
 
     use(itemStr) {
-        const [item, preposition, target] = itemStr.split(" ");
-        if (preposition !== "with" || !target) {
+        const match = itemStr.match(/(\S+)\s+with\s+(.+)/i);
+        if (!match) {
             this.output("Use items like this: use <item> with <target>");
             return;
         }
+        const [, item, target] = match;
         const room = this.rooms[this.currentRoom];
-        if (!this.inventory.some(i => i.name === item)) {
+    
+        if (!this.inventory.some(i => i.name.toLowerCase() === item.toLowerCase())) {
             this.output(`You don't have a ${item}.`);
             return;
         }
-        if (room.items[target] || (room.objects && room.objects[target])) {
-            if (room.useActions && room.useActions[item] && room.useActions[item][target]) {
-                const action = room.useActions[item][target];
-                action(this);
-                this.updateInventoryBox(); // Update inventory box after using an item
-            } else {
-                this.output(`You can't use the ${item} with the ${target}.`);
-            }
+    
+        const targetLower = target.toLowerCase();
+        const isValidTarget = (room.objects && room.objects[targetLower]) || (room.items && room.items[targetLower]);
+        if (!isValidTarget) {
+            this.output(`There's no ${target} here to use that with.`);
+            return;
+        }
+    
+        if (room.useActions && room.useActions[item.toLowerCase()] && room.useActions[item.toLowerCase()][targetLower]) {
+            room.useActions[item.toLowerCase()][targetLower](this);
         } else {
-            this.output(`There's no ${target} here.`);
+            this.output(`You can't use the ${item} with the ${target}.`);
         }
     }
 
