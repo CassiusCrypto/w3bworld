@@ -35,11 +35,9 @@ class AGT {
                 if (this.isExamineMode) {
                     // Exit examine mode on any text input
                     this.exitExamineMode();
-                    this.output("Examine cancelled.");
                 }				
                 if (this.isTakeMode) {
                     this.exitTakeMode(); // Exit take mode
-                    this.output("Take cancelled.");
                 }
                 this.output(`> ${input}`);
                 this.parseCommand(input);
@@ -101,11 +99,9 @@ class AGT {
                     if (!this.dead) {
                         if (this.isExamineMode && buttonData.label !== "Examine") {
                             this.exitExamineMode();
-                            this.output("Examine cancelled.");
                         }
                         if (this.isTakeMode && buttonData.label !== "Take") {
                             this.exitTakeMode();
-                            this.output("Take cancelled.");
                         }
                         if (buttonData.command && buttonData.label !== "Examine" && buttonData.label !== "Take") {
                             this.output(`> ${buttonData.command}`);
@@ -555,8 +551,6 @@ class AGT {
                     console.error("Error displaying item art:", error);
                     this.artBoxElement.innerHTML = "Error loading item art.";
                 });
-            } else {
-                this.artBoxElement.innerHTML = '';
             }
             found = true;
         }
@@ -571,8 +565,6 @@ class AGT {
                     console.error("Error displaying object art:", error);
                     this.artBoxElement.innerHTML = "Error loading object art.";
                 });
-            } else {
-                this.artBoxElement.innerHTML = '';
             }
             found = true;
         }
@@ -594,9 +586,6 @@ class AGT {
                     break;
                 }
             }
-            if (!artFound) {
-                this.artBoxElement.innerHTML = '';
-            }
             found = true;
         }
 
@@ -605,7 +594,6 @@ class AGT {
             const asset = this.gameData.whitelistedAssets.find(asset => asset.name.toLowerCase() === target.toLowerCase());
             if (asset) {
                 this.output(asset.description || `${asset.name}: No description available.`);
-                this.artBoxElement.innerHTML = ''; // No art for on-chain items unless specified
                 found = true;
             }
         }
@@ -620,7 +608,6 @@ class AGT {
     enterExamineMode() {
         if (this.dead) return;
         this.isExamineMode = true;
-        this.output("> examine");
         if (this.examineButton) {
             this.examineButton.classList.add("active");
         }
@@ -651,7 +638,6 @@ class AGT {
     enterTakeMode() {
         if (this.dead) return;
         this.isTakeMode = true;
-        this.output("> take");
         if (this.takeButton) {
             this.takeButton.classList.add("active");
         }
@@ -751,7 +737,6 @@ class AGT {
         this.artBoxElement.innerHTML = "";
         this.exitExamineMode(); // Reset examine mode		
         this.exitTakeMode();		
-        document.getElementById("commandInput").addEventListener("keypress", this.handleCommandInput);
         document.getElementById("commandInput").addEventListener("keypress", this.handleCommandInput);
         this.displayRoom();
         this.updateInventoryBox(); // Update inventory box after restarting
