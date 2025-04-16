@@ -34,6 +34,8 @@ class AGT {
         this.examineButton = null;
         this.isTakeMode = false;
         this.takeButton = null;
+        this.isPressMode = false;
+        this.pressButton = null;
         this.roomItemsList = document.getElementById("roomItemsList");
         console.log("Initial conditions stored:", this.initialConditions);
         this.conditions = { ...gameData.conditions };
@@ -57,6 +59,9 @@ class AGT {
                 }
                 if (this.isTakeMode) {
                     this.exitTakeMode();
+                }
+                if (this.isPressMode) {
+                    this.exitPressMode();
                 }
                 this.output(`> ${input}`);
                 this.parseCommand(input);
@@ -86,7 +91,7 @@ class AGT {
             { label: "Take", command: "take", action: () => this.enterTakeMode() },
             { label: "Use (With)", command: null, action: () => console.log("Use (With) button clicked (not implemented)") },
             // Row 3
-            { label: "Press", command: null, action: () => console.log("Press button clicked (not implemented)") },
+            { label: "Press", command: "press", action: () => this.enterPressMode() },
             { label: "Type", command: null, action: () => console.log("Type button clicked (not implemented)") },
             { label: "Fight", command: null, action: () => console.log("Fight button clicked (not implemented)") },
             // Row 4
@@ -114,6 +119,9 @@ class AGT {
                 if (buttonData.label === "Take") {
                     this.takeButton = button;
                 }
+                if (buttonData.label === "Press") {
+                    this.pressButton = button;
+                }				
                 button.addEventListener("click", () => {
                     if (!this.dead) {
                         if (this.isExamineMode && buttonData.label !== "Examine") {
@@ -122,7 +130,10 @@ class AGT {
                         if (this.isTakeMode && buttonData.label !== "Take") {
                             this.exitTakeMode();
                         }
-                        if (buttonData.command && buttonData.label !== "Examine" && buttonData.label !== "Take") {
+                        if (this.isPressMode && buttonData.label !== "Press") {
+                            this.exitPressMode();
+                        }
+                        if (buttonData.command && buttonData.label !== "Examine" && buttonData.label !== "Take" && buttonData.label !== "Press") {
                             this.output(`> ${buttonData.command}`);
                         }
                         buttonData.action();
@@ -288,7 +299,7 @@ class AGT {
 
         console.log("imgToAscii completed");
         this.updateMap();
-        this.updateRoomItemsList(); // Add this
+        this.updateRoomItemsList(); 
     }
 
     updateMap() {
@@ -380,34 +391,40 @@ class AGT {
         const room = this.rooms[this.currentRoom];
         const items = Object.keys(room.items || {});
         const objects = Object.keys(room.objects || {});
-        const allItems = [...items, ...objects];
+        const displayItems = this.isExamineMode ? [...items, ...objects] : this.isTakeMode ? items : this.isPressMode ? objects : [...items, ...objects];
 
-        if (allItems.length) {
-            allItems.forEach(item => {
-                const button = document.createElement("div");
-                button.className = "roomItemButton";
-                button.textContent = item.toUpperCase();
-                button.addEventListener("click", () => {
-                    if (this.isExamineMode && !this.dead) {
-                        this.output(`> examine ${item}`);
-                        this.examine(item);
-                        this.exitExamineMode();
-                    } else if (this.isTakeMode && !this.dead && items.includes(item)) {
-                        this.output(`> take ${item}`);
-                        this.parseCommand(`take ${item}`); // Use parseCommand to respect w3bworld.js override
-                        this.exitTakeMode();
-                    }
-                });
-                this.roomItemsList.appendChild(button);
+        displayItems.forEach(item => {
+            const button = document.createElement("div");
+            button.className = "roomItemButton";
+            button.textContent = item.toUpperCase();
+            button.addEventListener("click", () => {
+                if (this.isExamineMode && !this.dead) {
+                    this.output(`> examine ${item}`);
+                    this.examine(item);
+                    this.exitExamineMode();
+                } else if (this.isTakeMode && !this.dead) {
+                    this.output(`> take ${item}`);
+                    this.parseCommand(`take ${item}`);
+                    this.exitTakeMode();
+                    this.updateRoomItemsList();
+                } else if (this.isPressMode && !this.dead) {
+                    this.output(`> press ${item}`);
+                    this.parseCommand(`press ${item}`);
+                    this.exitPressMode();
+                    this.updateRoomItemsList();
+                }
             });
-        } else {
+            this.roomItemsList.appendChild(button);
+        });
+
+        if (!displayItems.length) {
             const emptyMessage = document.createElement("div");
             emptyMessage.className = "emptyMessage";
             emptyMessage.textContent = "No items or objects here.";
             this.roomItemsList.appendChild(emptyMessage);
         }
     }
-
+	
     async parseCommand(input) {
         if (this.dead) {
             return;
@@ -448,6 +465,10 @@ class AGT {
         }
         if (command === "inventory" || command === "i") {
             await this.showInventory();
+            return;
+        }
+        if (command === "press" && argStr) {
+            this.press(argStr);
             return;
         }
         if (command === "mint") {
@@ -639,6 +660,22 @@ class AGT {
         }
     }
 
+    enterPressMode() {
+        if (this.dead) return;
+        this.isPressMode = true;
+        if (this.pressButton) {
+            this.pressButton.classList.add("active");
+		}			
+    }
+
+    exitPressMode() {
+        this.isPressMode = false;
+        if (this.pressButton) {
+            this.pressButton.classList.remove("active");
+        }
+    }
+
+
     take(item) {
         const room = this.rooms[this.currentRoom];
         if (room.items[item]) {
@@ -694,6 +731,58 @@ class AGT {
             room.useActions[item.toLowerCase()][targetLower](this);
         } else {
             this.output(`You can't use the ${item} with the ${target}.`);
+        }
+    }
+
+    pressItem(target, action) {
+        const room = this.rooms[this.currentRoom];
+    
+        // Check required condition
+        if (action.condition && !this.conditions[action.condition]) {
+            this.output(action.conditionMessage || `The ${target} cannot be pressed yet.`);
+            return;
+        }
+    
+        // Output custom message
+        this.output(action.message || `You press the ${target}.`);
+    
+        // Create new item if specified
+        if (action.createItem) {
+            room.items = room.items || {};
+            room.items[action.createItem] = action.createItemDescription || "";
+            room.itemArt = room.itemArt || {};
+            room.itemArt[action.createItem] = action.createItemArt || "";
+        }
+    
+        // Remove item if specified
+        if (action.removeItem) {
+            delete room.items[action.removeItem];
+        }
+    
+        // Set condition if specified
+        if (action.setCondition) {
+            this.conditions[action.setCondition] = action.setConditionValue !== undefined ? action.setConditionValue : true;
+        }
+    
+        // Update UI
+        this.updateRoomItemsList();
+    }
+
+    press(arg) {
+        if (!arg) {
+            this.output("Press what?");
+            return;
+        }
+        const room = this.rooms[this.currentRoom];
+        const argLower = arg.toLowerCase();
+        const isValidTarget = (room.objects && room.objects[argLower]) || (room.items && room.items[argLower]);
+    
+        if (room.pressActions && room.pressActions[argLower]) {
+            this.pressItem(argLower, room.pressActions[argLower]);
+        } else if (isValidTarget) {
+            this.output(`Pressing the ${arg} does nothing.`);
+        } else {
+            this.output(`There's no ${arg} to press here.`);
         }
     }
 

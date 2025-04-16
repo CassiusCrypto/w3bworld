@@ -120,49 +120,7 @@ const gameData = {
                 agt.take(arg);
             }
         },
-		
-        press: {
-            execute: (agt, arg) => {
-                // Check if the player is in the scanner room
-                if (agt.currentRoom !== "scanner") {
-                    agt.output("You need to be in the scanner room to press anything.");
-                    return;
-                }
-
-                // Check if a button object exists in the room
-                const room = agt.rooms[agt.currentRoom];
-                if (!room.objects || !room.objects["button"]) {
-                    agt.output("There is no button here to press.");
-                    return;
-                }
-
-                // Check if an argument was provided
-                if (!arg) {
-                    agt.output("You need to press something.");
-                    return;
-                }
-
-                // Check if the argument is "button"
-                if (arg !== "button") {
-                    agt.output(`There's nothing like that to press here.`);
-                    return;
-                }
-
-                // At this point, arg === "button", the player is in the scanner room, and a button exists
-                if (agt.conditions.dataScannerInserted) {
-                    agt.output("You press the button. There is a whirring noise as scanners rapidly move around your head and body. The datacube in the scanner fills with light. You see a message on the screen: 'Scan complete. Soulcube is ready.'");
-                    room.items["soulcube"] = "Swirling shapes move across the surface of the glowing datacube, which now holds information representing every memory and neural connection in your brain.";
-                    room.itemArt = room.itemArt || {};
-                    room.itemArt["soulcube"] = "art/soulcube.jpg";					
-                    delete room.items["datacube"]; // Remove datacube and set inserted condition to false
-                    agt.conditions.dataScannerInserted = false;					
-                    agt.updateInventoryBox();					
-                    agt.updateRoomItemsList(); // Add this to refresh room items					
-                } else {
-                    agt.output("You press the button, but nothing happens.");
-                }
-            }
-        }			
+					
     },		
     startRoom: "atrium",
 
@@ -189,6 +147,19 @@ const gameData = {
                         "art/cube.jpg",
                         "The datacube slides into the scanner console with a smooth click."
                     )
+                }
+            },
+            pressActions: {
+                button: {
+                    condition: "dataScannerInserted",
+                    conditionMessage: "You press the button. Nothing happens.",
+                    message: "You press the button. There is a whirring noise as scanners rapidly move around your head and body. The datacube in the scanner fills with light. You see a message on the screen: 'Scan complete. Soulcube is ready.'",
+                    createItem: "soulcube",
+                    createItemDescription: "Swirling shapes move across the surface of the glowing soulcube, which holds information representing every memory and neural connection in your brain.",
+                    createItemArt: "art/soulcube.jpg",
+                    removeItem: "datacube",
+                    setCondition: "dataScannerInserted",
+                    setConditionValue: false
                 }
             }			
         },
