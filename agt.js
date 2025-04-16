@@ -36,6 +36,7 @@ class AGT {
         this.takeButton = null;
         this.isPressMode = false;
         this.pressButton = null;
+        this.selectedUseItem = null;
         this.roomItemsList = document.getElementById("roomItemsList");
         console.log("Initial conditions stored:", this.initialConditions);
         this.conditions = { ...gameData.conditions };
@@ -187,11 +188,16 @@ class AGT {
         if (allItems.length) {
             allItems.forEach(item => {
                 const itemDiv = document.createElement("div");
-                itemDiv.className = "inventoryItem";
                 if (item.type === "on-chain") {
-                    itemDiv.classList.add("khoyn-balance");
+                    itemDiv.className = "inventoryOnChainButton";
+                    itemDiv.textContent = item.name.toUpperCase();
+                } else {
+                    itemDiv.className = "roomItemButton";
+                    itemDiv.textContent = item.name.toUpperCase();
                 }
-                itemDiv.textContent = item.name;
+                if (item.name === this.selectedUseItem) {
+                    itemDiv.classList.add("active");
+                }
                 itemDiv.addEventListener("click", () => {
                     if (this.isExamineMode && !this.dead) {
                         this.output(`> examine ${item.name}`);

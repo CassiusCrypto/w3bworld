@@ -84,17 +84,14 @@ nav a:hover {
 
 /* Inventory Box */
 #inventoryBox {
-    width: 100%;
-    height: 100px;
-    border: 1px solid #0f0;
-    background: #000;
-    overflow-y: scroll;
-    padding: 10px;
-    color: #0f0;
-    font-family: monospace;
-    font-size: 12px;
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    gap: 3px;
+    width: 100%;
+    padding: 5px;
+    text-align: left;
+    border: 1px solid #0f0;
+    align-items: center; /* Ensure vertical centering of flex items */
 }
 
 #inventoryBox .title {
@@ -105,29 +102,24 @@ nav a:hover {
     border-bottom: 1px dashed #0f0;
     padding-bottom: 5px;
     margin-bottom: 10px;
-}
-
-#inventoryBox .inventoryItem {
-    color: #0f0; /* Off-chain items in green */
-    font-size: 12px;
-    padding: 3px;
-    cursor: pointer;
-}
-
-#inventoryBox .inventoryItem:hover {
-    background: #222;
-}
-
-#inventoryBox .inventoryItem.khoyn-balance {
-    color: #fff; /* On-chain items in white */
+    width: 100%;
 }
 
 #inventoryBox .emptyMessage {
-    color: #0f0;
+    color: #0ff;
     font-size: 12px;
     font-style: italic;
     text-align: center;
     margin-top: 10px;
+    width: 100%;
+}
+
+/* Override roomItemButton in inventoryBox */
+#inventoryBox .roomItemButton {
+    display: flex;
+    width: auto;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Right Panel */
@@ -160,7 +152,7 @@ nav a:hover {
 
 #commandsContainer {
     width: 100%;
-    height: 120px; /* Increased from 100px to fit 5 rows (5 * 20px + 4 * 5px gaps = 120px) */
+    height: 120px;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     grid-auto-rows: 20px;
@@ -226,15 +218,15 @@ nav a:hover {
 .portButton {
     width: 100%;
     height: 20px;
-    border: 1px solid #f00; /* Red border */
+    border: 1px solid #f00;
     background: #111;
-    color: #f00; /* Red text */
+    color: #f00;
     font-family: monospace;
     font-size: 12px;
     text-align: center;
     cursor: pointer;
     text-transform: uppercase;
-    grid-column: 2 / 3; /* Explicitly place in second column */
+    grid-column: 2 / 3;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -276,16 +268,12 @@ nav a:hover {
     font-size: 14px;
 }
 
-.khoyn-balance {
-    color: #fff; /* On-chain items in white */
-}
-
 /* Room Items Container */
 #roomItemsContainer {
     width: 100%;
-    height: 120px; /* Reduced height to fit smaller buttons */
+    height: 120px;
     background: #000;
-    padding: 10px;
+    padding: 5px;
     color: #0f0;
     font-family: monospace;
     font-size: 12px;
@@ -306,25 +294,27 @@ nav a:hover {
 
 #roomItemsList {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); /* Auto-fit columns, min 60px */
-    grid-auto-rows: 18px; /* Smaller row height */
+    grid-template-columns: repeat(3, 1fr);
+    grid-auto-rows: 20px;
     gap: 5px;
     align-items: center;
     justify-items: center;
 }
 
 .roomItemButton {
+    display: flex; /* Simplified display */
     width: 100%;
-    height: 18px; /* Smaller height */
-    border: 1px solid #0ff; /* Cyan border */
+    height: 20px;
+    padding: 2px 5px;
+    border: 1px solid #0f0;
     background: #111;
-    color: #0ff; /* Cyan text */
+    color: #0f0;
+    font-size: 12px;
     font-family: monospace;
-    font-size: 10px; /* Smaller font */
-    text-align: center;
-    cursor: pointer;
+    line-height: 12px; /* Normalize text height */
     text-transform: uppercase;
-    display: flex;
+    cursor: pointer;
+    box-sizing: border-box;
     align-items: center;
     justify-content: center;
 }
@@ -333,8 +323,39 @@ nav a:hover {
     background: #222;
 }
 
+.roomItemButton.active {
+    background: #0f0;
+    color: #000;
+}
+
+.inventoryOnChainButton {
+    display: flex;
+    width: auto;
+    height: 20px;
+    padding: 2px 5px;
+    border: 1px solid #ccc;
+    background: transparent;
+    color: #fff;
+    font-size: 12px;
+    font-family: monospace;
+    line-height: 12px; /* Normalize text height */
+    text-transform: uppercase;
+    cursor: pointer;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+}
+
+.inventoryOnChainButton:hover {
+    background: #222;
+}
+
+.inventoryOnChainButton.active {
+    background: #666;
+}
+
 #roomItemsContainer .emptyMessage {
-    color: #0ff; /* Cyan for consistency */
+    color: #0ff;
     font-size: 12px;
     font-style: italic;
     text-align: center;
