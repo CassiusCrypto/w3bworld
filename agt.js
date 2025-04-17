@@ -38,6 +38,8 @@ class AGT {
         this.pressButton = null;
         this.isTypeMode = false;
         this.typeButton = null;
+        this.isUseMode = false;
+        this.useButton = null;
         this.selectedUseItem = null;
         this.roomItemsList = document.getElementById("roomItemsList");
         console.log("Initial conditions stored:", this.initialConditions);
@@ -79,6 +81,7 @@ class AGT {
             console.error("Error in initial displayRoom:", error);
         });
         this.updateInventoryBox();
+        this.updateRoomItemsList();		
     }
 
     setupCommandButtons() {
@@ -92,7 +95,7 @@ class AGT {
             // Row 2
             { label: "Inventory", command: "inventory", action: () => this.parseCommand("inventory") },
             { label: "Take", command: "take", action: () => this.enterTakeMode() },
-            { label: "Use (With)", command: null, action: () => console.log("Use (With) button clicked (not implemented)") },
+            { label: "Use", command: "use", action: () => this.enterUseMode() },
             // Row 3
             { label: "Press", command: "press", action: () => this.enterPressMode() },
             { label: "Type", command: "type", action: () => this.enterTypeMode() },
@@ -116,33 +119,41 @@ class AGT {
             } else {
                 button.className = buttonData.isPort ? "portButton" : "commandButton";
                 button.textContent = buttonData.label;
-                if (buttonData.label === "Examine") {
-                    this.examineButton = button;
-                }
-                if (buttonData.label === "Take") {
-                    this.takeButton = button;
-                }
-                if (buttonData.label === "Press") {
-                    this.pressButton = button;
-                }				
-                if (buttonData.label === "Type") {
-                    this.typeButton = button; 
-                }
+                if (buttonData.label === "Examine") this.examineButton = button;
+                if (buttonData.label === "Take") this.takeButton = button;
+                if (buttonData.label === "Press") this.pressButton = button;
+                if (buttonData.label === "Type") this.typeButton = button;
+                if (buttonData.label === "Use") this.useButton = button;
                 button.addEventListener("click", () => {
                     if (!this.dead) {
-                        if (this.isExamineMode && buttonData.label !== "Examine") {
+                        if (buttonData.label === "Examine" && this.isExamineMode) {
                             this.exitExamineMode();
+                            return;
                         }
-                        if (this.isTakeMode && buttonData.label !== "Take") {
+                        if (buttonData.label === "Take" && this.isTakeMode) {
                             this.exitTakeMode();
+                            return;
                         }
-                        if (this.isPressMode && buttonData.label !== "Press") {
+                        if (buttonData.label === "Press" && this.isPressMode) {
                             this.exitPressMode();
+                            return;
                         }
-                        if (this.isTypeMode && buttonData.label !== "Type") {
+                        if (buttonData.label === "Type" && this.isTypeMode) {
                             this.exitTypeMode();
+                            return;
                         }
-                        if (buttonData.command && !["Examine", "Take", "Press", "Type"].includes(buttonData.label)) {
+                        if (buttonData.label === "Use" && this.isUseMode) {
+                            this.exitUseMode();
+                            return;
+                        }
+                        // Exit all modes before entering a new one
+                        if (this.isExamineMode) this.exitExamineMode();
+                        if (this.isTakeMode) this.exitTakeMode();
+                        if (this.isPressMode) this.exitPressMode();
+                        if (this.isTypeMode) this.exitTypeMode();
+                        if (this.isUseMode) this.exitUseMode();
+                        // Output command for non-mode buttons
+                        if (buttonData.command && !["Examine", "Take", "Press", "Type", "Use"].includes(buttonData.label)) {
                             this.output(`> ${buttonData.command}`);
                         }
                         buttonData.action();
@@ -151,6 +162,7 @@ class AGT {
             }
             this.commandsContainer.appendChild(button);
         });
+        this.updateButtonStates(); // Initialize button states
     }
 
     enterTypeMode() {
@@ -229,23 +241,57 @@ class AGT {
         });
     }
 
-    // Update handleCommandInput to support typeMode
     handleCommandInput = (event) => {
         if (event.key === "Enter" && !this.dead) {
             const input = event.target.value.trim();
             if (this.isTypeMode) {
-                // Ignore main input field when typeModal is active
                 event.target.value = "";
                 return;
             }
             if (this.isExamineMode) this.exitExamineMode();
             if (this.isTakeMode) this.exitTakeMode();
             if (this.isPressMode) this.exitPressMode();
+            if (this.isUseMode) this.exitUseMode();
             this.output(`> ${input}`);
             this.parseCommand(input);
             event.target.value = "";
         }
     };
+
+    enterUseMode() {
+        if (this.dead) return;
+        if (!this.inventory.length && !this.signer) {
+            this.output("You have no items to use.");
+            return;
+        }
+        this.isUseMode = true;
+        if (this.useButton) {
+            this.useButton.classList.add("active");
+        }
+        this.selectedUseItem = null;
+        this.updateInventoryBox();
+        this.updateRoomItemsList();
+    }
+
+    exitUseMode() {
+        this.isUseMode = false;
+        this.selectedUseItem = null;
+        if (this.useButton) {
+            this.useButton.classList.remove("active");
+        }
+        this.updateInventoryBox();
+        this.updateRoomItemsList();
+    }
+
+    updateButtonStates() {
+        if (this.useButton) {
+            if (!this.inventory.length && !this.signer) {
+                this.useButton.classList.add("disabled");
+            } else {
+                this.useButton.classList.remove("disabled");
+            }
+        }
+    }
 
     setBlockchainContext(contract, signer) {
         this.contract = contract;
@@ -290,25 +336,30 @@ class AGT {
         if (allItems.length) {
             allItems.forEach(item => {
                 const itemDiv = document.createElement("div");
-                if (item.type === "on-chain") {
-                    itemDiv.className = "inventoryOnChainButton";
-                    itemDiv.textContent = item.name.toUpperCase();
-                } else {
-                    itemDiv.className = "roomItemButton";
-                    itemDiv.textContent = item.name.toUpperCase();
-                }
-                if (item.name === this.selectedUseItem) {
+                itemDiv.className = item.type === "on-chain" ? "inventoryOnChainButton" : "roomItemButton";
+                itemDiv.textContent = item.name.toUpperCase();
+                if (this.isUseMode && !this.selectedUseItem) {
+                    itemDiv.classList.add("selectable");
+                    itemDiv.addEventListener("click", () => {
+                        if (this.isUseMode && !this.dead && !this.selectedUseItem) {
+                            this.selectedUseItem = item.name;
+                            this.output(`Selected ${item.name} to use. Now select a target in the room.`);
+                            this.updateInventoryBox();
+                            this.updateRoomItemsList();
+                        }
+                    });
+                } else if (this.isExamineMode) {
+                    itemDiv.classList.add("selectable");
+                    itemDiv.addEventListener("click", () => {
+                        if (!this.dead) {
+                            this.output(`> examine ${item.name}`);
+                            this.examine(item.name);
+                            this.exitExamineMode();
+                        }
+                    });
+                } else if (item.name === this.selectedUseItem) {
                     itemDiv.classList.add("active");
                 }
-                itemDiv.addEventListener("click", () => {
-                    if (this.isExamineMode && !this.dead) {
-                        this.output(`> examine ${item.name}`);
-                        this.examine(item.name);
-                        this.exitExamineMode();
-                    } else {
-                        console.log(`Clicked inventory item: ${item.name}`);
-                    }
-                });
                 this.inventoryBox.appendChild(itemDiv);
             });
         } else {
@@ -319,6 +370,7 @@ class AGT {
         }
 
         this.inventoryBox.scrollTop = 0;
+        this.updateButtonStates(); // Update button states
     }
 
     async imgToAscii(imageUrl) {
@@ -499,29 +551,55 @@ class AGT {
         const room = this.rooms[this.currentRoom];
         const items = Object.keys(room.items || {});
         const objects = Object.keys(room.objects || {});
-        const displayItems = this.isExamineMode ? [...items, ...objects] : this.isTakeMode ? items : this.isPressMode ? objects : [...items, ...objects];
+        const displayItems = this.isExamineMode ? [...items, ...objects] : 
+                            this.isTakeMode ? items : 
+                            this.isPressMode ? objects : 
+                            this.isUseMode ? [...items, ...objects] : 
+                            [...items, ...objects];
 
         displayItems.forEach(item => {
             const button = document.createElement("div");
             button.className = "roomItemButton";
             button.textContent = item.toUpperCase();
-            button.addEventListener("click", () => {
-                if (this.isExamineMode && !this.dead) {
-                    this.output(`> examine ${item}`);
-                    this.examine(item);
-                    this.exitExamineMode();
-                } else if (this.isTakeMode && !this.dead) {
-                    this.output(`> take ${item}`);
-                    this.parseCommand(`take ${item}`);
-                    this.exitTakeMode();
-                    this.updateRoomItemsList();
-                } else if (this.isPressMode && !this.dead) {
-                    this.output(`> press ${item}`);
-                    this.parseCommand(`press ${item}`);
-                    this.exitPressMode();
-                    this.updateRoomItemsList();
-                }
-            });
+            if (this.isUseMode && this.selectedUseItem) {
+                button.classList.add("selectable");
+                button.addEventListener("click", () => {
+                    if (this.isUseMode && !this.dead && this.selectedUseItem) {
+                        this.output(`> use ${this.selectedUseItem} with ${item}`);
+                        this.use(`${this.selectedUseItem} with ${item}`);
+                        this.exitUseMode();
+                    }
+                });
+            } else if (this.isExamineMode) {
+                button.classList.add("selectable");
+                button.addEventListener("click", () => {
+                    if (!this.dead) {
+                        this.output(`> examine ${item}`);
+                        this.examine(item);
+                        this.exitExamineMode();
+                    }
+                });
+            } else if (this.isTakeMode) {
+                button.classList.add("selectable");
+                button.addEventListener("click", () => {
+                    if (!this.dead) {
+                        this.output(`> take ${item}`);
+                        this.parseCommand(`take ${item}`);
+                        this.exitTakeMode();
+                        this.updateRoomItemsList();
+                    }
+                });
+            } else if (this.isPressMode) {
+                button.classList.add("selectable");
+                button.addEventListener("click", () => {
+                    if (!this.dead) {
+                        this.output(`> press ${item}`);
+                        this.parseCommand(`press ${item}`);
+                        this.exitPressMode();
+                        this.updateRoomItemsList();
+                    }
+                });
+            }
             this.roomItemsList.appendChild(button);
         });
 
@@ -759,6 +837,8 @@ class AGT {
         if (this.examineButton) {
             this.examineButton.classList.add("active");
         }
+        this.updateRoomItemsList(); // Refresh to show clickable items/objects
+        this.updateInventoryBox(); // Refresh inventory for examine
     }
 
     exitExamineMode() {
@@ -766,6 +846,8 @@ class AGT {
         if (this.examineButton) {
             this.examineButton.classList.remove("active");
         }
+        this.updateRoomItemsList(); // Refresh to remove click handlers
+        this.updateInventoryBox(); // Refresh inventory
     }
 
     enterPressMode() {
@@ -773,7 +855,8 @@ class AGT {
         this.isPressMode = true;
         if (this.pressButton) {
             this.pressButton.classList.add("active");
-		}			
+        }
+        this.updateRoomItemsList(); // Refresh to show clickable objects
     }
 
     exitPressMode() {
@@ -781,6 +864,7 @@ class AGT {
         if (this.pressButton) {
             this.pressButton.classList.remove("active");
         }
+        this.updateRoomItemsList(); // Refresh to remove click handlers
     }
 
 
@@ -805,6 +889,7 @@ class AGT {
         if (this.takeButton) {
             this.takeButton.classList.add("active");
         }
+        this.updateRoomItemsList(); // Refresh to show clickable items
     }
 
     exitTakeMode() {
@@ -955,11 +1040,16 @@ class AGT {
         console.log("Conditions after reset:", this.conditions);
         this.outputElement.innerHTML = "";
         this.artBoxElement.innerHTML = "";
-        this.exitExamineMode(); // Reset examine mode		
-        this.exitTakeMode();		
+        this.exitExamineMode();
+        this.exitTakeMode();
+        this.exitPressMode();
+        this.exitUseMode();
+        this.exitTypeMode();
         document.getElementById("commandInput").addEventListener("keypress", this.handleCommandInput);
+        this.setupCommandButtons(); // Reinitialize buttons
         this.displayRoom();
-        this.updateInventoryBox(); // Update inventory box after restarting
-        this.updateRoomItemsList(); 
+        this.updateInventoryBox();
+        this.updateRoomItemsList();
+        this.updateButtonStates(); // Reset button states
     }
 }
