@@ -98,7 +98,7 @@ class AGT {
             // Row 4
             { label: "Talk To", command: null, action: () => console.log("Talk To button clicked (not implemented)") },
             { label: "Help", command: "help", action: () => this.parseCommand("help") },
-            { label: "About", command: null, action: () => console.log("About button clicked (not implemented)") },
+            { label: "About", command: "about", action: () => this.parseCommand("about") },
             // Row 5: Port (centered)
             { label: "", command: null, action: () => {}, placeholder: true }, // Empty cell
             { label: "Port", command: null, action: () => console.log("Port button clicked (not implemented)"), isPort: true },
