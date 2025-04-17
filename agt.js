@@ -36,6 +36,8 @@ class AGT {
         this.takeButton = null;
         this.isPressMode = false;
         this.pressButton = null;
+        this.isTypeMode = false;
+        this.typeButton = null;
         this.selectedUseItem = null;
         this.roomItemsList = document.getElementById("roomItemsList");
         console.log("Initial conditions stored:", this.initialConditions);
@@ -93,7 +95,7 @@ class AGT {
             { label: "Use (With)", command: null, action: () => console.log("Use (With) button clicked (not implemented)") },
             // Row 3
             { label: "Press", command: "press", action: () => this.enterPressMode() },
-            { label: "Type", command: null, action: () => console.log("Type button clicked (not implemented)") },
+            { label: "Type", command: "type", action: () => this.enterTypeMode() },
             { label: "Fight", command: null, action: () => console.log("Fight button clicked (not implemented)") },
             // Row 4
             { label: "Talk To", command: null, action: () => console.log("Talk To button clicked (not implemented)") },
@@ -123,6 +125,9 @@ class AGT {
                 if (buttonData.label === "Press") {
                     this.pressButton = button;
                 }				
+                if (buttonData.label === "Type") {
+                    this.typeButton = button; 
+                }
                 button.addEventListener("click", () => {
                     if (!this.dead) {
                         if (this.isExamineMode && buttonData.label !== "Examine") {
@@ -134,7 +139,10 @@ class AGT {
                         if (this.isPressMode && buttonData.label !== "Press") {
                             this.exitPressMode();
                         }
-                        if (buttonData.command && buttonData.label !== "Examine" && buttonData.label !== "Take" && buttonData.label !== "Press") {
+                        if (this.isTypeMode && buttonData.label !== "Type") {
+                            this.exitTypeMode();
+                        }
+                        if (buttonData.command && !["Examine", "Take", "Press", "Type"].includes(buttonData.label)) {
                             this.output(`> ${buttonData.command}`);
                         }
                         buttonData.action();
@@ -144,6 +152,100 @@ class AGT {
             this.commandsContainer.appendChild(button);
         });
     }
+
+    enterTypeMode() {
+        if (this.dead) return;
+
+        // If already in typeMode, exit to close the modal (toggle behavior)
+        if (this.isTypeMode) {
+            this.exitTypeMode();
+            return;
+        }
+
+        // Set typeMode and highlight button
+        this.isTypeMode = true;
+        if (this.typeButton) {
+            this.typeButton.classList.add("active");
+        }
+        this.showTypeModal();
+    }
+
+    // Update exitTypeMode to ensure clean state
+    exitTypeMode() {
+        this.isTypeMode = false;
+        if (this.typeButton) {
+            this.typeButton.classList.remove("active");
+        }
+        const modal = document.getElementById("typeModal");
+        if (modal) {
+            modal.remove(); // Remove modal and its event listeners
+        }
+    }
+
+    // Update showTypeModal to prevent multiple modals
+    showTypeModal() {
+        // Remove any existing modal to prevent duplicates
+        const existingModal = document.getElementById("typeModal");
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        const modal = document.createElement("div");
+        modal.id = "typeModal";
+        modal.innerHTML = `
+            <div>ENTER COMMAND:</div>
+            <input type="text" id="typeModalInput" value="type " style="width: 100%;">
+        `;
+
+        document.body.appendChild(modal);
+
+        const input = modal.querySelector("#typeModalInput");
+        input.focus();
+        input.setSelectionRange(5, 5); // Place cursor after "type "
+
+        input.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                const command = input.value.trim().replace(/^type\s+/, "");
+                if (command) {
+                    this.output(`> type ${command}`);
+                    this.parseCommand(`type ${command}`);
+                }
+                this.exitTypeMode();
+            }
+        });
+
+        // Handle Escape key to close modal
+        input.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                this.exitTypeMode();
+            }
+        });
+
+        // Close modal on click outside
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) {
+                this.exitTypeMode();
+            }
+        });
+    }
+
+    // Update handleCommandInput to support typeMode
+    handleCommandInput = (event) => {
+        if (event.key === "Enter" && !this.dead) {
+            const input = event.target.value.trim();
+            if (this.isTypeMode) {
+                // Ignore main input field when typeModal is active
+                event.target.value = "";
+                return;
+            }
+            if (this.isExamineMode) this.exitExamineMode();
+            if (this.isTakeMode) this.exitTakeMode();
+            if (this.isPressMode) this.exitPressMode();
+            this.output(`> ${input}`);
+            this.parseCommand(input);
+            event.target.value = "";
+        }
+    };
 
     setBlockchainContext(contract, signer) {
         this.contract = contract;
