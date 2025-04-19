@@ -279,7 +279,6 @@ class AGT {
         if (this.useButton) {
             this.useButton.classList.remove("active");
         }
-        this.updateInventoryBox();
         this.updateRoomItemsList();
     }
 
@@ -316,16 +315,40 @@ class AGT {
 
         if (this.signer && this.gameData.whitelistedAssets) {
             const address = await this.signer.getAddress();
+            const seenAssets = new Set();
+            const balanceMap = new Map();
+
             for (const asset of this.gameData.whitelistedAssets) {
                 if (asset.type === "ERC721") {
+                    const normalizedName = asset.name.toLowerCase();
+                    if (normalizedName.includes("nexus key") && seenAssets.has("nexus key")) {
+                        continue;
+                    }
+
                     try {
                         const contract = new ethers.Contract(asset.contractAddress, asset.abi, this.signer);
                         const balance = await contract.balanceOf(address);
                         if (balance > 0) {
-                            onChainDisplay.push({ name: asset.name, type: "on-chain" });
+                            if (normalizedName.includes("nexus key")) {
+                                const currentBalance = balanceMap.get("nexus key") || 0;
+                                balanceMap.set("nexus key", currentBalance + parseInt(balance));
+                                if (!seenAssets.has("nexus key")) {
+                                    const totalBalance = balanceMap.get("nexus key");
+                                    const displayName = totalBalance > 1 ? `Nexus Key (x${totalBalance})` : "Nexus Key";
+                                    onChainDisplay.push({ name: displayName, type: "on-chain", baseName: "Nexus Key" });
+                                    seenAssets.add("nexus key");
+                                }
+                            } else if (!seenAssets.has(normalizedName)) {
+                                const displayName = balance > 1 ? `${asset.name} (x${balance})` : asset.name;
+                                onChainDisplay.push({ name: displayName, type: "on-chain", baseName: asset.name });
+                                seenAssets.add(normalizedName);
+                            }
                         }
                     } catch (error) {
-                        onChainDisplay.push({ name: `${asset.name}: error (${error.message})`, type: "on-chain" });
+                        if (!seenAssets.has(normalizedName)) {
+                            onChainDisplay.push({ name: `${asset.name}: error (${error.message})`, type: "on-chain", baseName: asset.name });
+                            seenAssets.add(normalizedName);
+                        }
                     }
                 }
             }
@@ -339,25 +362,24 @@ class AGT {
                 itemDiv.className = item.type === "on-chain" ? "inventoryOnChainButton" : "roomItemButton";
                 itemDiv.textContent = item.name.toUpperCase();
                 if (this.isUseMode && !this.selectedUseItem) {
-                    itemDiv.classList.add("selectable");
+                    // Removed itemDiv.classList.add("selectable");
                     itemDiv.addEventListener("click", () => {
                         if (this.isUseMode && !this.dead && !this.selectedUseItem) {
-                            this.selectedUseItem = item.name;
-                            this.output(`Selected ${item.name} to use. Now select a target in the room.`);
+                            this.selectedUseItem = item.baseName || item.name;
                             this.updateInventoryBox();
                             this.updateRoomItemsList();
                         }
                     });
                 } else if (this.isExamineMode) {
-                    itemDiv.classList.add("selectable");
+                    // Removed itemDiv.classList.add("selectable");
                     itemDiv.addEventListener("click", () => {
                         if (!this.dead) {
-                            this.output(`> examine ${item.name}`);
-                            this.examine(item.name);
+                            this.output(`> examine ${item.baseName || item.name}`);
+                            this.examine(item.baseName || item.name);
                             this.exitExamineMode();
                         }
                     });
-                } else if (item.name === this.selectedUseItem) {
+                } else if ((item.baseName || item.name) === this.selectedUseItem) {
                     itemDiv.classList.add("active");
                 }
                 this.inventoryBox.appendChild(itemDiv);
@@ -370,7 +392,7 @@ class AGT {
         }
 
         this.inventoryBox.scrollTop = 0;
-        this.updateButtonStates(); // Update button states
+        this.updateButtonStates();
     }
 
     async imgToAscii(imageUrl) {
@@ -551,18 +573,25 @@ class AGT {
         const room = this.rooms[this.currentRoom];
         const items = Object.keys(room.items || {});
         const objects = Object.keys(room.objects || {});
-        const displayItems = this.isExamineMode ? [...items, ...objects] : 
-                            this.isTakeMode ? items : 
-                            this.isPressMode ? objects : 
-                            this.isUseMode ? [...items, ...objects] : 
-                            [...items, ...objects];
+        let displayItems;
+        if (this.isExamineMode) {
+            displayItems = [...items, ...objects];
+        } else if (this.isTakeMode) {
+            displayItems = [...items, ...objects];
+        } else if (this.isPressMode) {
+            displayItems = objects;
+        } else if (this.isUseMode) {
+            displayItems = [...items, ...objects];
+        } else {
+            displayItems = [...items, ...objects];
+        }
 
         displayItems.forEach(item => {
             const button = document.createElement("div");
             button.className = "roomItemButton";
             button.textContent = item.toUpperCase();
             if (this.isUseMode && this.selectedUseItem) {
-                button.classList.add("selectable");
+                // Removed button.classList.add("selectable");
                 button.addEventListener("click", () => {
                     if (this.isUseMode && !this.dead && this.selectedUseItem) {
                         this.output(`> use ${this.selectedUseItem} with ${item}`);
@@ -571,7 +600,7 @@ class AGT {
                     }
                 });
             } else if (this.isExamineMode) {
-                button.classList.add("selectable");
+                // Removed button.classList.add("selectable");
                 button.addEventListener("click", () => {
                     if (!this.dead) {
                         this.output(`> examine ${item}`);
@@ -580,7 +609,7 @@ class AGT {
                     }
                 });
             } else if (this.isTakeMode) {
-                button.classList.add("selectable");
+                // Removed button.classList.add("selectable");
                 button.addEventListener("click", () => {
                     if (!this.dead) {
                         this.output(`> take ${item}`);
@@ -590,7 +619,7 @@ class AGT {
                     }
                 });
             } else if (this.isPressMode) {
-                button.classList.add("selectable");
+                // Removed button.classList.add("selectable");
                 button.addEventListener("click", () => {
                     if (!this.dead) {
                         this.output(`> press ${item}`);
@@ -603,7 +632,7 @@ class AGT {
             this.roomItemsList.appendChild(button);
         });
 
-        if (!displayItems.length) {
+        if (!displayItems.length && !this.isTakeMode) {
             const emptyMessage = document.createElement("div");
             emptyMessage.className = "emptyMessage";
             emptyMessage.textContent = "No items or objects here.";
@@ -907,24 +936,25 @@ class AGT {
         }
         const [, item, target] = match;
         const room = this.rooms[this.currentRoom];
-    
+
         if (!this.inventory.some(i => i.name.toLowerCase() === item.toLowerCase())) {
             this.output(`You don't have a ${item}.`);
             return;
         }
-    
+
         const targetLower = target.toLowerCase();
         const isValidTarget = (room.objects && room.objects[targetLower]) || (room.items && room.items[targetLower]);
         if (!isValidTarget) {
             this.output(`There's no ${target} here to use that with.`);
             return;
         }
-    
+
         if (room.useActions && room.useActions[item.toLowerCase()] && room.useActions[item.toLowerCase()][targetLower]) {
             room.useActions[item.toLowerCase()][targetLower](this);
         } else {
             this.output(`You can't use the ${item} with the ${target}.`);
         }
+        this.updateInventoryBox(); // Single refresh after useActions
     }
 
     pressItem(target, action) {

@@ -413,12 +413,3 @@ nav a:hover {
     opacity: 0.5;
     cursor: not-allowed;
 }
-
-.selectable {
-    cursor: pointer;
-    border: 1px dashed #0f0; /* Dashed border to indicate clickable */
-}
-
-.selectable:hover {
-    background: #222;
-}

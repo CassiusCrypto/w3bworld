@@ -37,7 +37,6 @@ function useItemWithDevice(agt, item, target, condition, itemDescription, itemAr
     agt.rooms[agt.currentRoom].itemArt[item] = itemArt;
     agt.conditions[condition] = true;
     agt.output(successMessage || `You use the ${item} with the ${target}.`);
-    agt.updateInventoryBox();
     agt.updateRoomItemsList();
 }
 
@@ -224,7 +223,7 @@ const gameData = {
             type: "ERC721",
             contractAddress: nexusAddress,
             abi: nexusAbi,
-            description: "Access key for the Quantum Nexus."
+            description: "The matt-black card holds access codes to the Quantum Nexus."
         }
         // Add more assets here if needed (e.g., other NFTs or tokens)
     ]
