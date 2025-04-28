@@ -41,6 +41,8 @@ class AGT {
         this.isUseMode = false;
         this.useButton = null;
         this.selectedUseItem = null;
+        this.isPortMode = false;
+        this.portButton = null;
         this.roomItemsList = document.getElementById("roomItemsList");
         console.log("Initial conditions stored:", this.initialConditions);
         this.conditions = { ...gameData.conditions };
@@ -106,7 +108,7 @@ class AGT {
             { label: "About", command: "about", action: () => this.parseCommand("about") },
             // Row 5: Port (centered)
             { label: "", command: null, action: () => {}, placeholder: true }, // Empty cell
-            { label: "Port", command: null, action: () => console.log("Port button clicked (not implemented)"), isPort: true },
+            { label: "Port", command: "port", action: () => this.enterPortMode(), isPort: true },
             { label: "", command: null, action: () => {}, placeholder: true } // Empty cell
         ];
 
@@ -124,8 +126,13 @@ class AGT {
                 if (buttonData.label === "Press") this.pressButton = button;
                 if (buttonData.label === "Type") this.typeButton = button;
                 if (buttonData.label === "Use") this.useButton = button;
+                if (buttonData.label === "Port") this.portButton = button;
                 button.addEventListener("click", () => {
                     if (!this.dead) {
+                        if (buttonData.label === "Port" && this.isPortMode) {
+                            this.exitPortMode();
+                            return;
+                        }
                         if (buttonData.label === "Examine" && this.isExamineMode) {
                             this.exitExamineMode();
                             return;
@@ -152,8 +159,9 @@ class AGT {
                         if (this.isPressMode) this.exitPressMode();
                         if (this.isTypeMode) this.exitTypeMode();
                         if (this.isUseMode) this.exitUseMode();
+                        if (this.isPortMode) this.exitPortMode();
                         // Output command for non-mode buttons
-                        if (buttonData.command && !["Examine", "Take", "Press", "Type", "Use"].includes(buttonData.label)) {
+                        if (buttonData.command && !["Examine", "Take", "Press", "Type", "Use", "Port"].includes(buttonData.label)) {
                             this.output(`> ${buttonData.command}`);
                         }
                         buttonData.action();
@@ -163,6 +171,51 @@ class AGT {
             this.commandsContainer.appendChild(button);
         });
         this.updateButtonStates(); // Initialize button states
+    }
+
+    // Add port mode methods
+    async enterPortMode() {
+        if (this.dead) return;
+        if (!this.signer) {
+            this.output("You need to connect to MetaMask to use the Port function.");
+            return;
+        }
+        // Check if Nexus Key is in inventory
+        let hasNexusKey = false;
+        if (this.gameData.whitelistedAssets) {
+            const address = await this.signer.getAddress();
+            for (const asset of this.gameData.whitelistedAssets) {
+                if (asset.name.toLowerCase() === "nexus key") {
+                    try {
+                        const contract = new ethers.Contract(asset.contractAddress, asset.abi, this.signer);
+                        const balance = await contract.balanceOf(address);
+                        if (balance > 0) {
+                            hasNexusKey = true;
+                            break;
+                        }
+                    } catch (error) {
+                        console.error("Error checking Nexus Key balance:", error);
+                    }
+                }
+            }
+        }
+        if (!hasNexusKey) {
+            this.output("You need a Nexus Key to use the Port function.");
+            return;
+        }
+        this.isPortMode = true;
+        if (this.portButton) {
+            this.portButton.classList.add("active");
+        }
+        this.updateInventoryBox();
+    }
+
+    exitPortMode() {
+        this.isPortMode = false;
+        if (this.portButton) {
+            this.portButton.classList.remove("active");
+        }
+        this.updateInventoryBox();
     }
 
     enterTypeMode() {
@@ -361,8 +414,15 @@ class AGT {
                 const itemDiv = document.createElement("div");
                 itemDiv.className = item.type === "on-chain" ? "inventoryOnChainButton" : "roomItemButton";
                 itemDiv.textContent = item.name.toUpperCase();
-                if (this.isUseMode && !this.selectedUseItem) {
-                    // Removed itemDiv.classList.add("selectable");
+                if (this.isPortMode && item.baseName === "Nexus Key") {
+                    itemDiv.addEventListener("click", () => {
+                        if (this.isPortMode && !this.dead) {
+                            this.output(`> port with ${item.baseName}`);
+                            this.port(item.baseName);
+                            this.exitPortMode();
+                        }
+                    });
+                } else if (this.isUseMode && !this.selectedUseItem) {
                     itemDiv.addEventListener("click", () => {
                         if (this.isUseMode && !this.dead && !this.selectedUseItem) {
                             this.selectedUseItem = item.baseName || item.name;
@@ -686,6 +746,14 @@ class AGT {
             this.press(argStr);
             return;
         }
+        if (command === "port" && argStr) {
+            this.port(argStr);
+            return;
+        }
+        if (command === "return") {
+            this.returnToAtrium();
+            return;
+        }
         if (command === "mint") {
             this.mintKhoyn(argStr);
             return;
@@ -695,7 +763,7 @@ class AGT {
             return;
         }
         if (command === "help" || command === "h") {
-            this.output(`Standard commands:<br>north/n, south/s, west/w, east/e - Move to new location<br>look/l - Look around the current location<br>inventory/i - Check your inventory<br>examine/exam <item> - Examine an item in the current location<br>take <item> - Pick up an item<br>use item/object with item/object - use something with something else<br>mint - mint khoyn (on-chain)<br>balance - check khoyn balance<br>help/h - Show this help message<br>about - About W3bWorld`);
+            this.output(`Standard commands:<br>north/n, south/s, west/w, east/e - Move to new location<br>look/l - Look around the current location<br>inventory/i - Check your inventory<br>examine/exam <item> - Examine an item in the current location<br>take <item> - Pick up an item<br>use item/object with item/object - use something with something else<br>port <key> - port to a new location<br>mint - mint khoyn (on-chain)<br>balance - check khoyn balance<br>help/h - Show this help message<br>about - About W3bWorld`);
             return;
         }
         if (command === "about") {
@@ -896,6 +964,60 @@ class AGT {
         this.updateRoomItemsList(); // Refresh to remove click handlers
     }
 
+    async port(item) {
+        if (item.toLowerCase() !== "nexus key") {
+            this.output("You can only port with a Nexus Key.");
+            return;
+        }
+        // Verify Nexus Key ownership
+        let hasNexusKey = false;
+        if (this.signer && this.gameData.whitelistedAssets) {
+            const address = await this.signer.getAddress();
+            for (const asset of this.gameData.whitelistedAssets) {
+                if (asset.name.toLowerCase() === "nexus key") {
+                    try {
+                        const contract = new ethers.Contract(asset.contractAddress, asset.abi, this.signer);
+                        const balance = await contract.balanceOf(address);
+                        if (balance > 0) {
+                            hasNexusKey = true;
+                            break;
+                        }
+                    } catch (error) {
+                        this.output(`Error verifying Nexus Key: ${error.message}`);
+                        return;
+                    }
+                }
+            }
+        }
+        if (!hasNexusKey) {
+            this.output("You don't have a Nexus Key to port with.");
+            return;
+        }
+        if (!this.rooms.nexus) {
+            this.output("Error: The Nexus room does not exist.");
+            return;
+        }
+        this.currentRoom = "nexus";
+        this.output("Reality shifts.");
+        await this.displayRoom();
+        this.updateRoomItemsList();
+    }
+
+    async returnToAtrium() {
+        if (this.currentRoom === "atrium") {
+            this.output("You are already in the atrium.");
+            return;
+        }
+        if (!this.rooms.atrium) {
+            this.output("Error: The atrium room does not exist.");
+            return;
+        }
+        this.currentRoom = "atrium";
+        this.output("Reality shifts.");
+        await this.displayRoom();
+        this.updateInventoryBox();
+        this.updateRoomItemsList();
+    }
 
     take(item) {
         const room = this.rooms[this.currentRoom];
@@ -938,7 +1060,7 @@ class AGT {
         const room = this.rooms[this.currentRoom];
 
         if (!this.inventory.some(i => i.name.toLowerCase() === item.toLowerCase())) {
-            this.output(`You don't have a ${item}.`);
+            this.output(`You can't do that.`);
             return;
         }
 

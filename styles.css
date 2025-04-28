@@ -236,6 +236,11 @@ nav a:hover {
     background: #222;
 }
 
+.portButton.active {
+    background: #f00; /* Red background when active */
+    color: #000;
+}
+
 /* Input and Connect Button */
 #inputContainer {
     margin-top: 10px;

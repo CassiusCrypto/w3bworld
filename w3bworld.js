@@ -66,7 +66,7 @@ const gameData = {
                 }
                 if (arg === "help") {
                     // Placeholder for help subcommand
-                    agt.output("Terminal Help:<br><i>My name's Carter, and if you're reading this, you're a Porter like me, which means you're going to need all the help you can get. I managed to hack a message into the console on one of my brief return journeys.<br>You need to remember that everything you see is real. The fact that this is simulation doesn't change that. When you can manipulate the fabric of reality then there's no difference between reality and simulation. It's just a shame we started tampering with the universe before we properly understood it. Stay safe and Godspeed. I guess it's possible I'll see you in 'there', somewhere, but the odds of us overlapping are remote and the odds I'm already dead are high. I'm sorry, but those are the risks we all take.</i><p>Recognized commands include 'upload', 'unlock', 'help'.");
+                    agt.output("Terminal Help:<br><i>My name's Carter, and if you're reading this, you're a Porter like me, which means you're going to need all the help you can get. I managed to hack a message into the console on one of my brief return journeys.<br>You need to remember that everything you see is real. The fact that this is simulation doesn't change that. When you can manipulate the fabric of reality then there's no difference between reality and simulation. It's just a shame we started tampering with the universe before we properly understood it. Stay safe and Godspeed. I guess it's possible I'll see you in 'there', somewhere, but the odds of us overlapping are remote and the chances I'm already dead are high. I'm sorry, but those are the risks we all take.</i><p>Recognized commands include 'upload', 'unlock', 'help'.");
                     return;
                 }
                 if (arg === "upload") {
@@ -94,6 +94,12 @@ const gameData = {
                     }
                     return;
 				}
+            }
+        },
+
+        return: {
+            execute: (agt) => {
+                agt.returnToAtrium();
             }
         },
 
@@ -215,7 +221,14 @@ const gameData = {
                     )
                 }
             }
-        }
+        },
+        nexus: {
+            description: "You are in a large, empty room. This is the Nexus of the Quantum world: a digital reality synthesized through quantum manipulation of the fabric of the universe.",
+            exits: {},
+            items: {}, 
+            objects: {},
+            roomArt: ""
+        }			
     },
     whitelistedAssets: [
         {
@@ -223,7 +236,7 @@ const gameData = {
             type: "ERC721",
             contractAddress: nexusAddress,
             abi: nexusAbi,
-            description: "The matt-black card holds access codes to the Quantum Nexus."
+            description: "The card holds access codes to the Quantum Nexus. Its featureless, matt-black surface soaks in the light, making it seem more like a hole in the fabric of reality than a physical object."
         }
         // Add more assets here if needed (e.g., other NFTs or tokens)
     ]
