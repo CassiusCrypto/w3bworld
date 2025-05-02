@@ -30,6 +30,8 @@ class AGT {
         console.log("Current room:", this.currentRoom);
         this.inventory = [];
         this.initialConditions = { ...gameData.conditions };
+        this.isSearchMode = false;
+        this.searchButton = null;
         this.isExamineMode = false;
         this.examineButton = null;
         this.isTakeMode = false;
@@ -93,7 +95,7 @@ class AGT {
             // Row 1
             { label: "Look", command: "look", action: () => this.parseCommand("look") },
             { label: "Examine", command: "examine", action: () => this.enterExamineMode() },
-            { label: "Search", command: null, action: () => console.log("Search button clicked (not implemented)") },
+            { label: "Search", command: "search", action: () => this.enterSearchMode() },
             // Row 2
             { label: "Inventory", command: "inventory", action: () => this.parseCommand("inventory") },
             { label: "Take", command: "take", action: () => this.enterTakeMode() },
@@ -127,6 +129,7 @@ class AGT {
                 if (buttonData.label === "Type") this.typeButton = button;
                 if (buttonData.label === "Use") this.useButton = button;
                 if (buttonData.label === "Port") this.portButton = button;
+                if (buttonData.label === "Search") this.searchButton = button; 
                 button.addEventListener("click", () => {
                     if (!this.dead) {
                         if (buttonData.label === "Port" && this.isPortMode) {
@@ -153,6 +156,10 @@ class AGT {
                             this.exitUseMode();
                             return;
                         }
+                        if (buttonData.label === "Search" && this.isSearchMode) { 
+                            this.exitSearchMode();
+                            return;
+                        }
                         // Exit all modes before entering a new one
                         if (this.isExamineMode) this.exitExamineMode();
                         if (this.isTakeMode) this.exitTakeMode();
@@ -160,8 +167,9 @@ class AGT {
                         if (this.isTypeMode) this.exitTypeMode();
                         if (this.isUseMode) this.exitUseMode();
                         if (this.isPortMode) this.exitPortMode();
+                        if (this.isSearchMode) this.exitSearchMode();
                         // Output command for non-mode buttons
-                        if (buttonData.command && !["Examine", "Take", "Press", "Type", "Use", "Port"].includes(buttonData.label)) {
+                        if (buttonData.command && !["Examine", "Take", "Press", "Type", "Use", "Port", "Search"].includes(buttonData.label)) {
                             this.output(`> ${buttonData.command}`);
                         }
                         buttonData.action();
@@ -208,6 +216,23 @@ class AGT {
             this.portButton.classList.add("active");
         }
         this.updateInventoryBox();
+    }
+
+    enterSearchMode() {
+        if (this.dead) return;
+        this.isSearchMode = true;
+        if (this.searchButton) {
+            this.searchButton.classList.add("active");
+        }
+        this.updateRoomItemsList(); // Refresh to show clickable objects
+    }
+
+    exitSearchMode() {
+        this.isSearchMode = false;
+        if (this.searchButton) {
+            this.searchButton.classList.remove("active");
+        }
+        this.updateRoomItemsList(); // Refresh to remove click handlers
     }
 
     exitPortMode() {
@@ -305,6 +330,7 @@ class AGT {
             if (this.isTakeMode) this.exitTakeMode();
             if (this.isPressMode) this.exitPressMode();
             if (this.isUseMode) this.exitUseMode();
+            if (this.isSearchMode) this.exitSearchMode();
             this.output(`> ${input}`);
             this.parseCommand(input);
             event.target.value = "";
@@ -687,6 +713,8 @@ async updateW3bBalance() {
             displayItems = objects;
         } else if (this.isUseMode) {
             displayItems = [...items, ...objects];
+        } else if (this.isSearchMode) {
+            displayItems = objects; // Only objects can be searched
         } else {
             displayItems = [...items, ...objects];
         }
@@ -733,6 +761,14 @@ async updateW3bBalance() {
                         this.updateRoomItemsList();
                     }
                 });
+            } else if (this.isSearchMode) {
+                button.addEventListener("click", () => {
+                    if (!this.dead) {
+                        this.output(`> search ${item}`);
+                        this.search(item);
+                        this.exitSearchMode();
+                    }
+                });
             }
             this.roomItemsList.appendChild(button);
         });
@@ -767,6 +803,10 @@ async updateW3bBalance() {
         }
         if (command === "examine" || command === "exam" && argStr) {
             this.examine(argStr);
+            return;
+        }
+        if (command === "search" && argStr) { // New search command
+            this.search(argStr);
             return;
         }
         if (command === "take" && argStr) {
@@ -901,6 +941,51 @@ async updateW3bBalance() {
             this.displayRoom();
         } else {
             this.output("You can't go that way.");
+        }
+    }
+
+    search(target) {
+        const room = this.rooms[this.currentRoom];
+        let found = false;
+
+        if (room.objects && room.objects[target] && room.searchActions && room.searchActions[target]) {
+            const action = room.searchActions[target];
+            // Handle condition check
+            let conditionMet = true;
+            if (action.condition) {
+                const isNegated = action.condition.startsWith("!");
+                const conditionKey = isNegated ? action.condition.slice(1) : action.condition;
+                const conditionValue = this.conditions[conditionKey];
+                conditionMet = isNegated ? !conditionValue : conditionValue;
+            }
+            if (!conditionMet) {
+                this.output(action.conditionMessage || `Searching the ${target} reveals nothing.`);
+                return;
+            }
+            // Check if item already exists in room
+            if (room.items && room.items[action.createItem]) {
+                this.output(`The ${action.createItem} is already here.`);
+                return;
+            }
+            this.output(action.message || `You search the ${target} and find a ${action.createItem}.`);
+            room.items = room.items || {};
+            room.items[action.createItem] = action.createItemDescription || "";
+            if (action.createItemArt) {
+                room.itemArt = room.itemArt || {};
+                room.itemArt[action.createItem] = action.createItemArt;
+            }
+            if (action.setCondition) {
+                this.conditions[action.setCondition] = action.setConditionValue !== undefined ? action.setConditionValue : true;
+            }
+            this.updateRoomItemsList();
+            found = true;
+            } else if (room.objects && room.objects[target]) {
+            this.output(`Searching the ${target} reveals nothing.`);
+            found = true;
+        }
+
+        if (!found) {
+            this.output(`There's nothing to search or no ${target} here.`);
         }
     }
 

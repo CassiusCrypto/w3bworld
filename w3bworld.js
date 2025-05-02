@@ -46,7 +46,8 @@ const gameData = {
         atriumDoorUnlocked: false,
         datacubeInserted: false,
         soulCubeInserted: false,
-        dataScannerInserted: false 		
+        dataScannerInserted: false,
+        keycardFound: false 		
     },
     commands: { // Define bespoke commands here
         type: {
@@ -219,6 +220,18 @@ const gameData = {
                         "art/soulcube.jpg",
                         "The swirling shapes on the soulcube shift and glow brighter as you slide the memory device into the terminal drive."
                     )
+                }
+            },
+            searchActions: {
+                terminal: {
+                    message: "You search the terminal and find a dusty keycard tucked behind the monitor.",
+                    createItem: "keycard",
+                    createItemDescription: "A small, metallic keycard with a faint glow, possibly used to unlock secure areas.",
+                    createItemArt: "",
+                    setCondition: "keycardFound", // Set condition to true after finding
+                    setConditionValue: true,
+                    condition: "!keycardFound", 
+                    conditionMessage: "You already found the keycard behind the terminal." 
                 }
             }
         },
