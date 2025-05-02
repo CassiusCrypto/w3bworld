@@ -263,6 +263,7 @@ nav a:hover {
     padding: 5px 10px;
     cursor: pointer;
     font-family: monospace;
+    font-size: 14px;
 }
 
 #connectButton:hover {
@@ -271,6 +272,63 @@ nav a:hover {
 
 #walletAddress {
     font-size: 14px;
+}
+
+#walletContainer {
+    display: flex;
+    align-items: center;
+    gap: 20px; /* Space between balance and mint button */
+}
+
+/* Style for W3b balance */
+#w3bBalance {
+    font-family: monospace;
+    font-size: 14px;
+    color: #fff; 
+}
+
+/* Style for mint dropdown (already present) */
+#mintAmount {
+    background: #000;
+    color: #0f0;
+    border: 1px solid #0f0;
+    font-family: monospace;
+    font-size: 14px;
+    padding: 2px;
+    cursor: pointer;
+}
+
+/* Style for dropdown options (already present) */
+#mintAmount option {
+    background: #000;
+    color: #0f0;
+    font-family: monospace;
+}
+
+/* Style for Mint W3B button (already present) */
+#mintButton {
+    background: #0f0;
+    color: #000;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-family: monospace;
+    font-size: 14px;
+}
+
+#mintButton:hover {
+    background: #0c0;
+}
+
+#mintButton:disabled {
+    background: #333;
+    color: #666;
+    cursor: not-allowed;
+}
+
+/* Hide connect button when connected */
+#connectButton.hidden {
+    display: none;
 }
 
 /* Room Items Container */

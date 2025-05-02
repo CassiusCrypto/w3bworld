@@ -1,10 +1,11 @@
 // W3bWorld Game Definition using AGT
 
-// Blockchain integration
-const contractAddress = "0xa876eA30592a2576566C490360d2916F2D6ADf87"; // KhoynExchange contract address
-const contractABI = [
-    "function deposit() external payable",
-    "function balanceOf(address account) external view returns (uint256)"
+// W3b token integration
+const w3bAddress = "0x1E2a5DBE9d0cEd108D97e8c5ef38d3BaCda8d46B"; // w3b token address 
+const w3bABI = [
+    "function buyTokens() external payable",
+    "function balanceOf(address account) external view returns (uint256)",
+    "function decimals() view returns (uint8)"
 ];
 
 const nexusAddress = "0x3a109F1356c004cb6B066E2C57f444525E5caA67"; // Nexus NFT contract address
@@ -19,7 +20,6 @@ const BASE_MAINNET_CHAIN_ID = 8453;
 
 let provider;
 let signer;
-let contract;
 
 // Shared function for use actions
 function useItemWithDevice(agt, item, target, condition, itemDescription, itemArt, successMessage) {
@@ -227,7 +227,7 @@ const gameData = {
             exits: {},
             items: {}, 
             objects: {},
-            roomArt: ""
+            roomArt: "art/nexus.jpg"
         }			
     },
     whitelistedAssets: [
@@ -281,19 +281,26 @@ document.getElementById("connectButton").addEventListener("click", () => {
 });
 
 // Initialize Web3 provider (MetaMask)
+// In w3bworld.js, replace the initWeb3 function
 async function initWeb3(game) {
-    // Ensure ethers is defined
     if (typeof ethers === "undefined") {
         game.output("Error: ethers.js is not loaded. Please refresh the page or check your internet connection.");
         return;
     }
 
+    const mintButton = document.getElementById("mintButton");
+    const mintAmount = document.getElementById("mintAmount");
+    const walletContainer = document.getElementById("walletContainer");
+
+    // Disable mint button by default
+    if (mintButton) mintButton.disabled = true;
+
     if (window.ethereum) {
         try {
+            game.output("Connecting to MetaMask...");
             provider = new ethers.BrowserProvider(window.ethereum);
             await provider.send("eth_requestAccounts", []);
 
-            // Check the network
             const network = await provider.getNetwork();
             if (Number(network.chainId) !== BASE_MAINNET_CHAIN_ID) {
                 game.output(`Error: Please switch MetaMask to Base Mainnet (chain ID ${BASE_MAINNET_CHAIN_ID}). Current network: ${network.name} (chain ID ${network.chainId}).`);
@@ -301,24 +308,59 @@ async function initWeb3(game) {
             }
 
             signer = await provider.getSigner();
-            // Get the connected wallet address
             const address = await signer.getAddress();
-            // Explicitly resolve the contract address to avoid ENS lookup
-            const resolvedAddress = ethers.getAddress(contractAddress);
-            contract = new ethers.Contract(resolvedAddress, contractABI, signer);
+            const w3bContract = new ethers.Contract(w3bAddress, w3bABI, signer);
+
+            // Fetch and display W3b balance
+            try {
+                const balance = await w3bContract.balanceOf(address);
+                const decimals = await w3bContract.decimals();
+                const formattedBalance = ethers.formatUnits(balance, decimals);
+                document.getElementById("w3bBalance").textContent = `W3B: ${formattedBalance}`;
+            } catch (error) {
+                document.getElementById("w3bBalance").textContent = `W3B: Error (${error.message})`;
+            }
+
             game.output("Connected to MetaMask on Base Mainnet.");
+            game.setBlockchainContext(w3bContract, signer);
 
-            // Update the AGT instance with contract and signer
-            game.setBlockchainContext(contract, signer);
+            // Update walletContainer to show balance, dropdown, mint button, and wallet address
+            walletContainer.innerHTML = `
+                <div id="w3bBalance">${document.getElementById("w3bBalance").textContent}</div>
+                <select id="mintAmount">
+                    <option value="" disabled selected>Select amount</option>
+                    <option value="0.0005">0.0005 ETH (10,000 W3B)</option>
+                    <option value="0.001">0.001 ETH (20,000 W3B)</option>
+                    <option value="0.0025">0.0025 ETH (50,000 W3B)</option>
+                    <option value="0.005">0.005 ETH (100,000 W3B)</option>
+                </select>
+                <button id="mintButton">Mint W3B</button>
+                <div id="walletAddress">Connected: ${address.slice(0, 4)}...${address.slice(-4)}</div>
+            `;
 
-            // Update the UI to show the connected address
-            const walletContainer = document.getElementById("walletContainer");
-            walletContainer.innerHTML = `<div id="walletAddress">Connected: ${address.slice(0, 4)}...${address.slice(-4)}</div>`;
+            // Re-attach mint button listener
+            const newMintButton = document.getElementById("mintButton");
+            const newMintAmount = document.getElementById("mintAmount");
+            if (newMintButton && newMintAmount) {
+                newMintButton.disabled = false;
+                newMintButton.addEventListener("click", () => {
+                    const ethAmount = newMintAmount.value;
+                    if (!ethAmount) {
+                        game.output("Please select an amount to mint.");
+                        return;
+                    }
+                    game.mintW3b(ethAmount);
+                });
+            }
         } catch (error) {
             game.output(`Error connecting to MetaMask: ${error.message}`);
+            document.getElementById("w3bBalance").textContent = "W3B: Unavailable";
+            if (mintButton) mintButton.disabled = true;
             return;
         }
     } else {
         game.output("Please install MetaMask to use blockchain features.");
+        document.getElementById("w3bBalance").textContent = "W3B: Unavailable";
+        if (mintButton) mintButton.disabled = true;
     }
 }

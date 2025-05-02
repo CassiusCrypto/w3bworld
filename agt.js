@@ -345,16 +345,61 @@ class AGT {
         }
     }
 
-    setBlockchainContext(contract, signer) {
-        this.contract = contract;
+    setBlockchainContext(w3bContract, signer) {
+        this.w3bContract = w3bContract;
         this.signer = signer;
-        this.updateInventoryBox(); // Update inventory box after setting blockchain context
+        this.updateW3bBalance(); // Update balance on context set
+        this.updateInventoryBox(); // Update inventory box
+    }
+
+    // In agt.js, add the updateW3bBalance method after setBlockchainContext
+    async updateW3bBalance() {
+        const w3bBalanceDiv = document.getElementById("w3bBalance");
+        if (!this.w3bContract || !this.signer) {
+            if (w3bBalanceDiv) w3bBalanceDiv.textContent = "W3B: Unavailable";
+            return;
+        }
+        try {
+            const address = await this.signer.getAddress();
+            const balance = await this.w3bContract.balanceOf(address);
+            const decimals = await this.w3bContract.decimals();
+            const formattedBalance = ethers.formatUnits(balance, decimals);
+            if (w3bBalanceDiv) w3bBalanceDiv.textContent = `W3B: ${formattedBalance}`;
+        } catch (error) {
+            if (w3bBalanceDiv) w3bBalanceDiv.textContent = `W3B: Error (${error.message})`;
+        }
     }
 
     output(message) {
         this.outputElement.innerHTML += `<p>${message}</p>`;
         this.outputElement.scrollTop = this.outputElement.scrollHeight;
     }
+
+// In agt.js, replace the setBlockchainContext method
+setBlockchainContext(w3bContract, signer) {
+    this.w3bContract = w3bContract;
+    this.signer = signer;
+    this.updateW3bBalance(); // Update balance on context set
+    this.updateInventoryBox(); // Update inventory box
+}
+
+// In agt.js, add the updateW3bBalance method after setBlockchainContext
+async updateW3bBalance() {
+    const w3bBalanceDiv = document.getElementById("w3bBalance");
+    if (!this.w3bContract || !this.signer) {
+        if (w3bBalanceDiv) w3bBalanceDiv.textContent = "W3B: Unavailable";
+        return;
+    }
+    try {
+        const address = await this.signer.getAddress();
+        const balance = await this.w3bContract.balanceOf(address);
+        const decimals = await this.w3bContract.decimals();
+        const formattedBalance = ethers.formatUnits(balance, decimals);
+        if (w3bBalanceDiv) w3bBalanceDiv.textContent = `W3B: ${formattedBalance}`;
+    } catch (error) {
+        if (w3bBalanceDiv) w3bBalanceDiv.textContent = `W3B: Error (${error.message})`;
+    }
+}
 
     async updateInventoryBox() {
         if (!this.inventoryBox) return;
@@ -431,7 +476,6 @@ class AGT {
                         }
                     });
                 } else if (this.isExamineMode) {
-                    // Removed itemDiv.classList.add("selectable");
                     itemDiv.addEventListener("click", () => {
                         if (!this.dead) {
                             this.output(`> examine ${item.baseName || item.name}`);
@@ -453,6 +497,7 @@ class AGT {
 
         this.inventoryBox.scrollTop = 0;
         this.updateButtonStates();
+        this.updateW3bBalance(); // Refresh W3b balance
     }
 
     async imgToAscii(imageUrl) {
@@ -692,12 +737,6 @@ class AGT {
             this.roomItemsList.appendChild(button);
         });
 
-        if (!displayItems.length && !this.isTakeMode) {
-            const emptyMessage = document.createElement("div");
-            emptyMessage.className = "emptyMessage";
-            emptyMessage.textContent = "No items or objects here.";
-            this.roomItemsList.appendChild(emptyMessage);
-        }
     }
 	
     async parseCommand(input) {
@@ -754,14 +793,6 @@ class AGT {
             this.returnToAtrium();
             return;
         }
-        if (command === "mint") {
-            this.mintKhoyn(argStr);
-            return;
-        }
-        if (command === "balance") {
-            this.checkBalance(argStr);
-            return;
-        }
         if (command === "help" || command === "h") {
             this.output(`Standard commands:<br>north/n, south/s, west/w, east/e - Move to new location<br>look/l - Look around the current location<br>inventory/i - Check your inventory<br>examine/exam <item> - Examine an item in the current location<br>take <item> - Pick up an item<br>use item/object with item/object - use something with something else<br>port <key> - port to a new location<br>mint - mint khoyn (on-chain)<br>balance - check khoyn balance<br>help/h - Show this help message<br>about - About W3bWorld`);
             return;
@@ -774,22 +805,35 @@ class AGT {
         this.output("I don't understand. Try help for a list of commands.");
     }
 
+    async mintW3b(ethAmount) {
+        if (!this.w3bContract || !this.signer) {
+            this.output("Please connect to MetaMask first using the 'Connect to MetaMask' button.");
+            return;
+        }
+        if (!ethAmount || isNaN(ethAmount) || ethAmount <= 0) {
+            this.output("Please select a valid amount to mint.");
+            return;
+        }
+        try {
+            const ethValue = ethers.parseEther(ethAmount.toString());
+            this.output(`Minting W3B tokens for ${ethAmount} ETH... Please confirm in MetaMask.`);
+            const tx = await this.w3bContract.buyTokens({ value: ethValue });
+            this.output("Transaction sent. Waiting for confirmation...");
+            await tx.wait();
+            this.output("Successfully minted W3B tokens!");
+            this.updateW3bBalance(); // Refresh balance display
+            this.updateInventoryBox(); // Refresh inventory UI
+        } catch (error) {
+            this.output(`Error minting W3B tokens: ${error.message}`);
+            if (error.code === "INSUFFICIENT_FUNDS") {
+                this.output(`Insufficient ETH. You need at least ${ethAmount} ETH plus gas fees.`);
+            }
+        }
+    }
+
     async showInventory() {
         let inventoryDisplay = this.inventory.map(item => item.name);
         let onChainDisplay = [];
-
-        if (this.contract && this.signer) {
-            try {
-                const address = await this.signer.getAddress();
-                const balance = await this.contract.balanceOf(address);
-                const formattedBalance = ethers.formatEther(balance);
-                onChainDisplay.push(`<span class="khoyn-balance">${formattedBalance} khoyn</span>`);
-            } catch (error) {
-                onChainDisplay.push(`<span class="khoyn-balance">Khoyn: error (${error.message})</span>`);
-            }
-        } else {
-            onChainDisplay.push(`<span class="khoyn-balance">Unavailable (connect to MetaMask)</span>`);
-        }
 
         if (this.signer && this.gameData.whitelistedAssets) {
             const address = await this.signer.getAddress();
@@ -1128,41 +1172,6 @@ class AGT {
             this.output(`Pressing the ${arg} does nothing.`);
         } else {
             this.output(`There's no ${arg} to press here.`);
-        }
-    }
-
-    async mintKhoyn(arg) {
-        if (!this.contract) {
-            this.output("Please connect to MetaMask first using the 'Connect to MetaMask' button.");
-            return;
-        }
-        try {
-            const ethAmount = ethers.parseEther("0.0001");
-            const tx = await this.contract.deposit({ value: ethAmount });
-            this.output("Minting Khoyn... Waiting for transaction confirmation.");
-            await tx.wait();
-            this.output("Successfully minted Khoyn!");
-            this.updateInventoryBox(); // Update inventory box after minting khoyn
-        } catch (error) {
-            this.output(`Error minting Khoyn: ${error.message}`);
-            if (error.code === "INSUFFICIENT_FUNDS") {
-                this.output("You don't have enough ETH to mint Khoyn. You need at least 0.0001 ETH plus gas fees.");
-            }
-        }
-    }
-
-    async checkBalance(arg) {
-        if (!this.contract) {
-            this.output("Please connect to MetaMask first using the 'Connect to MetaMask' button.");
-            return;
-        }
-        try {
-            const address = await this.signer.getAddress();
-            const balance = await this.contract.balanceOf(address);
-            this.output(`Your khoyn balance: ${ethers.formatEther(balance)} khoyn`);
-            this.updateInventoryBox(); // Update inventory box after checking balance
-        } catch (error) {
-            this.output(`Error checking balance: ${error.message}`);
         }
     }
 
